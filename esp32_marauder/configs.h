@@ -17,7 +17,7 @@
   //#define MARAUDER_V7_1
   //#define MARAUDER_KIT
   //#define GENERIC_ESP32
-  //#define MARAUDER_FLIPPER
+  #define MARAUDER_FLIPPER
   //#define MARAUDER_MULTIBOARD_S3
   //#define ESP32_LDDB
   //#define MARAUDER_DEV_BOARD_PRO
@@ -26,7 +26,7 @@
   //#define MARAUDER_CYD_MICRO // 2432S028
   //#define MARAUDER_CYD_2USB // Another 2432S028 but it has tWo UsBs OoOoOoO
   //#define MARAUDER_CYD_GUITION // ESP32-2432S024 GUITION
-  //#define MARAUDER_C5
+  #define MARAUDER_C5
   //#define MARAUDER_CARDPUTER
   //// END BOARD TARGETS
 
@@ -377,7 +377,7 @@
   #endif
 
   #ifdef MARAUDER_C5
-    //#define HAS_FLIPPER_LED
+    #define HAS_FLIPPER_LED
     //#define FLIPPER_ZERO_HAT
     //#define HAS_BATTERY
     //#define HAS_BT
@@ -390,7 +390,7 @@
     #define HAS_SD
     #define USE_SD
     #define HAS_DUAL_BAND
-    //#define HAS_PSRAM
+    #define HAS_PSRAM
     //#define HAS_TEMP_SENSOR
   #endif
   //// END BOARD FEATURES
