@@ -329,6 +329,7 @@ void CommandLine::runCommand(String input) {
     #ifdef HAS_GPS
       if (gps_obj.getGpsModuleStatus()) {
         int get_arg = this->argSearch(&cmd_args, "-g");
+        int track_arg = this->argSearch(&cmd_args, "-t");
         int nmea_arg = this->argSearch(&cmd_args, "-n");
 
         if (get_arg != -1) {
@@ -384,6 +385,13 @@ void CommandLine::runCommand(String input) {
           }
           else
             Serial.println("You did not provide a valid argument");
+        }
+        else if (track_arg != -1) {
+          wifi_scan_obj.currentScanMode = GPS_TRACKER;
+          #ifdef HAS_SCREEN
+            menu_function_obj.changeMenu(&menu_function_obj.gpsInfoMenu);
+          #endif
+          wifi_scan_obj.StartScan(GPS_TRACKER, TFT_CYAN);
         }
         else if(cmd_args.size()>1)
           Serial.println("You did not provide a valid flag");
@@ -648,7 +656,15 @@ void CommandLine::runCommand(String input) {
           evil_portal_obj.setHtmlFromSerial();
         }
         else if (et_command == "setap") {
+          int target_ap_index = cmd_args.get(cmd_sw + 2).toInt();
+          if ((target_ap_index >= 0) && (target_ap_index < access_points->size())) {
+            evil_portal_obj.setAP(access_points->get(target_ap_index).essid);
+            AccessPoint new_ap = access_points->get(target_ap_index);
+            new_ap.selected = true;
+            access_points->set(target_ap_index, new_ap);
 
+            evil_portal_obj.ap_index = target_ap_index;
+          }
         }
       }
     }
@@ -855,6 +871,27 @@ void CommandLine::runCommand(String input) {
             #endif
             Serial.println("Starting Manual Deauthentication attack. Stop with " + (String)STOPSCAN_CMD);
             wifi_scan_obj.StartScan(WIFI_ATTACK_DEAUTH_MANUAL, TFT_RED);            
+          }
+        }
+        // Bad Msg
+        else if (attack_type == ATTACK_TYPE_BM) {
+          // Attack all
+          if (targ_sw == -1) {
+            Serial.println("Starting Bad Msg attack against all stations. Stop with " + (String)STOPSCAN_CMD);
+            #ifdef HAS_SCREEN
+              display_obj.clearScreen();
+              menu_function_obj.drawStatusBar();
+            #endif
+            wifi_scan_obj.StartScan(WIFI_ATTACK_BAD_MSG, TFT_RED);
+          }
+          // Target clients
+          else {
+            Serial.println("Starting targeted Bad Msg attack. Stop with " + (String)STOPSCAN_CMD);
+            #ifdef HAS_SCREEN
+              display_obj.clearScreen();
+              menu_function_obj.drawStatusBar();
+            #endif
+            wifi_scan_obj.StartScan(WIFI_ATTACK_BAD_MSG_TARGETED, TFT_YELLOW);
           }
         }
         // Beacon

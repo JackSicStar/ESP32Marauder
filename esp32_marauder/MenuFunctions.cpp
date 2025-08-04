@@ -772,6 +772,7 @@ void MenuFunctions::main(uint32_t currentTime)
       (wifi_scan_obj.currentScanMode == ESP_UPDATE) ||
       (wifi_scan_obj.currentScanMode == SHOW_INFO) ||
       (wifi_scan_obj.currentScanMode == WIFI_SCAN_GPS_DATA) ||
+      (wifi_scan_obj.currentScanMode == GPS_TRACKER) ||
       (wifi_scan_obj.currentScanMode == WIFI_SCAN_GPS_NMEA)) {
     if (wifi_scan_obj.orient_display) {
       this->orientDisplay();
@@ -812,6 +813,8 @@ void MenuFunctions::main(uint32_t currentTime)
       (wifi_scan_obj.currentScanMode != WIFI_ATTACK_DEAUTH) &&
       (wifi_scan_obj.currentScanMode != WIFI_ATTACK_DEAUTH_MANUAL) &&
       (wifi_scan_obj.currentScanMode != WIFI_ATTACK_DEAUTH_TARGETED) &&
+      (wifi_scan_obj.currentScanMode != WIFI_ATTACK_BAD_MSG_TARGETED) &&
+      (wifi_scan_obj.currentScanMode != WIFI_ATTACK_BAD_MSG) &&
       (wifi_scan_obj.currentScanMode != WIFI_ATTACK_MIMIC) &&
       (wifi_scan_obj.currentScanMode != WIFI_ATTACK_RICK_ROLL))
     display_obj.displayBuffer();
@@ -834,6 +837,7 @@ void MenuFunctions::main(uint32_t currentTime)
         (wifi_scan_obj.currentScanMode != ESP_UPDATE) &&
         (wifi_scan_obj.currentScanMode != SHOW_INFO) &&
         (wifi_scan_obj.currentScanMode != WIFI_SCAN_GPS_DATA) &&
+        (wifi_scan_obj.currentScanMode != GPS_TRACKER) &&
         (wifi_scan_obj.currentScanMode != WIFI_SCAN_GPS_NMEA))
     {
       // Stop the current scan
@@ -860,6 +864,8 @@ void MenuFunctions::main(uint32_t currentTime)
           (wifi_scan_obj.currentScanMode == WIFI_ATTACK_DEAUTH) ||
           (wifi_scan_obj.currentScanMode == WIFI_ATTACK_DEAUTH_MANUAL) ||
           (wifi_scan_obj.currentScanMode == WIFI_ATTACK_DEAUTH_TARGETED) ||
+          (wifi_scan_obj.currentScanMode == WIFI_ATTACK_BAD_MSG_TARGETED) ||
+          (wifi_scan_obj.currentScanMode == WIFI_ATTACK_BAD_MSG) ||
           (wifi_scan_obj.currentScanMode == WIFI_ATTACK_MIMIC) ||
           (wifi_scan_obj.currentScanMode == WIFI_ATTACK_RICK_ROLL) ||
           (wifi_scan_obj.currentScanMode == WIFI_ATTACK_BEACON_LIST) ||
@@ -909,6 +915,7 @@ void MenuFunctions::main(uint32_t currentTime)
           (wifi_scan_obj.currentScanMode != ESP_UPDATE) &&
           (wifi_scan_obj.currentScanMode != SHOW_INFO) &&
           (wifi_scan_obj.currentScanMode != WIFI_SCAN_GPS_DATA) &&
+          (wifi_scan_obj.currentScanMode != GPS_TRACKER) &&
           (wifi_scan_obj.currentScanMode != WIFI_SCAN_GPS_NMEA))
       {
         // Stop the current scan
@@ -937,6 +944,8 @@ void MenuFunctions::main(uint32_t currentTime)
             (wifi_scan_obj.currentScanMode == WIFI_ATTACK_DEAUTH) ||
             (wifi_scan_obj.currentScanMode == WIFI_ATTACK_DEAUTH_MANUAL) ||
             (wifi_scan_obj.currentScanMode == WIFI_ATTACK_DEAUTH_TARGETED) ||
+            (wifi_scan_obj.currentScanMode == WIFI_ATTACK_BAD_MSG_TARGETED) ||
+            (wifi_scan_obj.currentScanMode == WIFI_ATTACK_BAD_MSG) ||
             (wifi_scan_obj.currentScanMode == WIFI_ATTACK_MIMIC) ||
             (wifi_scan_obj.currentScanMode == WIFI_ATTACK_RICK_ROLL) ||
             (wifi_scan_obj.currentScanMode == WIFI_ATTACK_BEACON_LIST) ||
@@ -991,6 +1000,8 @@ void MenuFunctions::main(uint32_t currentTime)
         (wifi_scan_obj.currentScanMode != WIFI_ATTACK_DEAUTH) &&
         (wifi_scan_obj.currentScanMode != WIFI_ATTACK_DEAUTH_MANUAL) &&
         (wifi_scan_obj.currentScanMode != WIFI_ATTACK_DEAUTH_TARGETED) &&
+        (wifi_scan_obj.currentScanMode != WIFI_ATTACK_BAD_MSG_TARGETED) &&
+        (wifi_scan_obj.currentScanMode != WIFI_ATTACK_BAD_MSG) &&
         (wifi_scan_obj.currentScanMode != WIFI_ATTACK_MIMIC) &&
         (wifi_scan_obj.currentScanMode != WIFI_SCAN_PACKET_RATE) &&
         (wifi_scan_obj.currentScanMode != WIFI_SCAN_RAW_CAPTURE) &&
@@ -1540,7 +1551,7 @@ void MenuFunctions::updateStatusBar()
   }
 
   // Force PMKID stuff
-  if (wifi_scan_obj.force_pmkid) {
+  if ((wifi_scan_obj.force_pmkid) || (wifi_scan_obj.ep_deauth)) {
     #ifdef HAS_FULL_SCREEN
       display_obj.tft.drawXBitmap(170 - (16 * 2),
                                   0,
@@ -1732,7 +1743,7 @@ void MenuFunctions::drawStatusBar()
   }
 
   // Force PMKID stuff
-  if (wifi_scan_obj.force_pmkid) {
+  if ((wifi_scan_obj.force_pmkid) || (wifi_scan_obj.ep_deauth)) {
     #ifdef HAS_FULL_SCREEN
       display_obj.tft.drawXBitmap(170 - (16 * 2),
                                   0,
@@ -1932,6 +1943,9 @@ void MenuFunctions::RunSetup()
   saveATsMenu.list = new LinkedList<MenuNode>();
   loadATsMenu.list = new LinkedList<MenuNode>();
 
+  evilPortalMenu.list = new LinkedList<MenuNode>();
+  ssidsMenu.list = new LinkedList<MenuNode>();
+
   // Work menu names
   mainMenu.name = text_table1[6];
   wifiMenu.name = text_table1[7];
@@ -1986,6 +2000,8 @@ void MenuFunctions::RunSetup()
   //  #endif
   #endif
   selectProbeSSIDsMenu.name = "Probe Requests";
+  evilPortalMenu.name = "Evil Portal";
+  ssidsMenu.name = "SSIDs";
 
   // Build Main Menu
   mainMenu.parentMenu = NULL;
@@ -2213,11 +2229,62 @@ void MenuFunctions::RunSetup()
     this->drawStatusBar();
     wifi_scan_obj.StartScan(WIFI_ATTACK_AUTH, TFT_RED);
   });
-  this->addNodes(&wifiAttackMenu, "Evil Portal", TFTORANGE, NULL, BEACON_SNIFF, [this]() {
+  /*this->addNodes(&wifiAttackMenu, "Evil Portal", TFTORANGE, NULL, BEACON_SNIFF, [this]() {
     display_obj.clearScreen();
     this->drawStatusBar();
     wifi_scan_obj.StartScan(WIFI_SCAN_EVIL_PORTAL, TFT_ORANGE);
     wifi_scan_obj.setMac();
+  });*/
+  this->addNodes(&wifiAttackMenu, "Evil Portal", TFTORANGE, NULL, BEACON_SNIFF, [this]() {
+
+    wifiAPMenu.list->clear();
+    ssidsMenu.list->clear();
+
+    wifiAPMenu.parentMenu = &evilPortalMenu;
+    ssidsMenu.parentMenu = &evilPortalMenu;
+
+    this->addNodes(&wifiAPMenu, text09, TFTLIGHTGREY, NULL, 0, [this]() {
+      this->changeMenu(wifiAPMenu.parentMenu);
+    });
+    this->addNodes(&ssidsMenu, text09, TFTLIGHTGREY, NULL, 0, [this]() {
+      this->changeMenu(ssidsMenu.parentMenu);
+    });
+
+    // Get AP list ready
+    for (int i = 0; i < access_points->size(); i++) {
+      // This is the menu node
+      this->addNodes(&wifiAPMenu, access_points->get(i).essid, TFTCYAN, NULL, 255, [this, i](){
+        if (evil_portal_obj.setAP(access_points->get(i).essid)) {
+          AccessPoint new_ap = access_points->get(i);
+          new_ap.selected = true;
+          access_points->set(i, new_ap);
+
+          evil_portal_obj.ap_index = i;
+
+          display_obj.clearScreen();
+          this->drawStatusBar();
+          wifi_scan_obj.StartScan(WIFI_SCAN_EVIL_PORTAL, TFT_ORANGE);
+          wifi_scan_obj.setMac();
+        }
+        else
+          this->changeMenu(&evilPortalMenu);
+      });
+    }
+
+    for (int i = 0; i < ssids->size(); i++) {
+      // This is the menu node
+      this->addNodes(&ssidsMenu, ssids->get(i).essid, TFTCYAN, NULL, 255, [this, i](){
+        if (evil_portal_obj.setAP(ssids->get(i).essid)) {
+          display_obj.clearScreen();
+          this->drawStatusBar();
+          wifi_scan_obj.StartScan(WIFI_SCAN_EVIL_PORTAL, TFT_ORANGE);
+          wifi_scan_obj.setMac();
+        }
+        else
+          this->changeMenu(&evilPortalMenu);
+      });
+    }
+    this->changeMenu(&evilPortalMenu);
   });
   this->addNodes(&wifiAttackMenu, text_table1[54], TFTRED, NULL, DEAUTH_SNIFF, [this]() {
     display_obj.clearScreen();
@@ -2257,7 +2324,29 @@ void MenuFunctions::RunSetup()
       });
     }
     this->changeMenu(&selectProbeSSIDsMenu);
-  });  
+  });
+
+  this->addNodes(&wifiAttackMenu, "Bad Msg", TFTRED, NULL, DEAUTH_SNIFF, [this]() {
+    display_obj.clearScreen();
+    this->drawStatusBar();
+    wifi_scan_obj.StartScan(WIFI_ATTACK_BAD_MSG, TFT_RED);
+  });
+  this->addNodes(&wifiAttackMenu, "Bad Msg Targeted", TFTYELLOW, NULL, DEAUTH_SNIFF, [this]() {
+    display_obj.clearScreen();
+    this->drawStatusBar();
+    wifi_scan_obj.StartScan(WIFI_ATTACK_BAD_MSG_TARGETED, TFT_YELLOW);
+  });
+
+  evilPortalMenu.parentMenu = &wifiAttackMenu;
+  this->addNodes(&evilPortalMenu, text09, TFTLIGHTGREY, NULL, 0, [this]() {
+    this->changeMenu(evilPortalMenu.parentMenu);
+  });
+  this->addNodes(&evilPortalMenu, "Access Points", TFTGREEN, NULL, BEACON_SNIFF, [this]() {
+    this->changeMenu(&wifiAPMenu);
+  });
+  this->addNodes(&evilPortalMenu, "User SSIDs", TFTCYAN, NULL, PROBE_SNIFF, [this]() {
+    this->changeMenu(&ssidsMenu);
+  });
 
   // Build WiFi General menu
   wifiGeneralMenu.parentMenu = &wifiMenu;
@@ -2419,6 +2508,7 @@ void MenuFunctions::RunSetup()
 
     // Select APs on Mini
     this->addNodes(&wifiGeneralMenu, "Select APs", TFTNAVY, NULL, KEYBOARD_ICO, [this](){
+      wifiAPMenu.parentMenu = &wifiGeneralMenu;
       // Add the back button
       wifiAPMenu.list->clear();
         this->addNodes(&wifiAPMenu, text09, TFTLIGHTGREY, NULL, 0, [this]() {
@@ -3115,10 +3205,17 @@ void MenuFunctions::RunSetup()
         wifi_scan_obj.StartScan(WIFI_SCAN_GPS_NMEA, TFT_ORANGE);
       });
 
+      this->addNodes(&deviceMenu, "GPS Tracker", TFTGREEN, NULL, GPS_MENU, [this]() {
+        wifi_scan_obj.currentScanMode = GPS_TRACKER;
+        this->changeMenu(&gpsInfoMenu);
+        wifi_scan_obj.StartScan(GPS_TRACKER, TFT_CYAN);
+      });
+
       // GPS Info Menu
       gpsInfoMenu.parentMenu = &deviceMenu;
       this->addNodes(&gpsInfoMenu, text09, TFTLIGHTGREY, NULL, 0, [this]() {
-        wifi_scan_obj.currentScanMode = WIFI_SCAN_OFF;
+        if(wifi_scan_obj.currentScanMode != GPS_TRACKER)
+          wifi_scan_obj.currentScanMode = WIFI_SCAN_OFF;
         wifi_scan_obj.StartScan(WIFI_SCAN_OFF);
         this->changeMenu(gpsInfoMenu.parentMenu);
       }); 
@@ -3140,6 +3237,7 @@ void MenuFunctions::RunSetup()
       wifi_scan_obj.force_pmkid = settings_obj.loadSetting<bool>(text_table4[5]);
       wifi_scan_obj.force_probe = settings_obj.loadSetting<bool>(text_table4[6]);
       wifi_scan_obj.save_pcap = settings_obj.loadSetting<bool>(text_table4[7]);
+      wifi_scan_obj.ep_deauth = settings_obj.loadSetting<bool>("EPDeauth");
     }, settings_obj.loadSetting<bool>(settings_obj.setting_index_to_name(i)));
   }
 
