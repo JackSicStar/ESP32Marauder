@@ -21,7 +21,7 @@
   //#define MARAUDER_MULTIBOARD_S3
   //#define ESP32_LDDB
   //#define MARAUDER_DEV_BOARD_PRO
-  //#define XIAO_ESP32_S3
+  #define XIAO_ESP32_S3
   //#define MARAUDER_REV_FEATHER
   //#define MARAUDER_CYD_MICRO // 2432S028
   //#define MARAUDER_CYD_2USB // Another 2432S028 but it has tWo UsBs OoOoOoO
