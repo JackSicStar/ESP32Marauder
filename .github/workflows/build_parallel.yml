@@ -32,13 +32,21 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v3
 
-      # Arduino CLI bez bólu (w PATH w kolejnych krokach)
-      - name: Install Arduino CLI
-        uses: arduino/setup-arduino-cli@v1
-        with:
-          version: latest
+      # Stabilna instalacja arduino-cli (bin do /usr/local/bin)
+      - name: Install Arduino CLI (pinned)
+        run: |
+          set -eux
+          VER="0.35.4"
+          ARCH="Linux_64bit"
+          TAR="arduino-cli_${VER}_${ARCH}.tar.gz"
+          URL="https://downloads.arduino.cc/arduino-cli/${TAR}"
+          curl -fsSL "$URL" -o "/tmp/$TAR"
+          tar -xzf "/tmp/$TAR" -C /tmp
+          sudo mv "/tmp/arduino-cli_${VER}_${ARCH}/arduino-cli" /usr/local/bin/arduino-cli
+          sudo chmod +x /usr/local/bin/arduino-cli
+          arduino-cli version
 
-      - name: ESP32 Core ${{ matrix.board.idf_ver }}
+      - name: Install ESP32 Core ${{ matrix.board.idf_ver }}
         run: |
           set -eux
           URL="https://github.com/espressif/arduino-esp32/releases/download/${{ matrix.board.idf_ver }}/package_esp32_dev_index.json"
@@ -54,6 +62,10 @@ jobs:
           arduino-board-fqbn: esp32:esp32:esp32s2
           arduino-platform: esp32:esp32@${{ matrix.board.idf_ver }}
           platform-url: https://github.com/espressif/arduino-esp32/releases/download/${{ matrix.board.idf_ver }}/package_esp32_dev_index.json
+
+      - name: Show Arduino dir structure
+        run: |
+          find /home/runner/.arduino15/packages/esp32/hardware/ -maxdepth 3 -type d -print || true
 
       # ==== Biblioteki wymagane przez Maraudera (headless – bez TFT) ====
       - name: Install ESP32Ping
@@ -142,7 +154,7 @@ jobs:
           done
           find "$HOME/Arduino/libraries" -maxdepth 2 -type d -name "Custom*" -print
 
-      # Opcjonalny hack -zmuldefs (zostaw, jeśli trafią się multiple definition)
+      # Opcjonalny hack -zmuldefs dla 2.0.11 (tylko jeśli pojawią się multiple definition)
       - name: Modify platform.txt (optional)
         run: |
           if [[ "${{ matrix.board.idf_ver }}" == "2.0.11" ]]; then
@@ -169,6 +181,9 @@ jobs:
           fi
           echo "Board lines in configs.h:"
           grep -nE '^#define (XIAO_ESP32_S3|MARAUDER_)' "$CFG" || true
+
+      - name: Install Esptool
+        run: pip install esptool
 
       - name: Build Marauder for ${{ matrix.board.name }}
         uses: ArminJo/arduino-test-compile@v3.3.0
@@ -227,7 +242,7 @@ jobs:
           files: |
             esp32_marauder_v*.bin
           body: |
-            **Flipper Zero Marauder Companion App:** zainstaluj najnowszą wersję, aby korzystać z funkcji headless.
+            **Flipper Zero Marauder Companion App:** zainstaluj najnowszą wersję, aby korzystać z trybu headless (pliki/HTML z karty Flippera).
             | Hardware        | Binary Version |
             | --------------  | -------------- |
             | XIAO_ESP32_S3   | `xiaos3.bin`   |
