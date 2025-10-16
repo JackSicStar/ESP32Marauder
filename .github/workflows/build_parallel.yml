@@ -17,24 +17,29 @@ jobs:
       fail-fast: false
       matrix:
         board:
-         
-          - { name: "xiaos3",            flag: "XIAO_ESP32_S3",           fbqn: "esp32:esp32:XIAO_ESP32S3:PartitionScheme=min_spiffs,FlashSize=16M,PSRAM=opi",                    file_name: "XIAO ESP32 S3",           tft: false, tft_file: "",                                   build_dir: "esp32s3",                    addr: "0x1000",   idf_ver: "2.0.11",   nimble_ver: "1.3.8",    esp_async: "bigbrodude6119/ESPAsyncWebServer",    esp_async_ver: "master" }
-          
+          - { name: "xiaos3",
+              flag: "XIAO_ESP32_S3",
+              fbqn: "esp32:esp32:XIAO_ESP32S3:PartitionScheme=min_spiffs,FlashSize=16M,PSRAM=opi",
+              file_name: "xiaos3",
+              tft: false,
+              tft_file: "",
+              build_dir: "esp32s3",
+              addr: "0x1000",
+              idf_ver: "2.0.11",
+              nimble_ver: "1.3.8",
+              esp_async: "bigbrodude6119/ESPAsyncWebServer",
+              esp_async_ver: "master" }
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
-          
+
       - name: Install Arduino CLI
         run: |
           curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh
-          echo "/home/runner/work/ESP32Marauder/ESP32Marauder/bin" >> $GITHUB_PATH
-          export PATH=$PATH:/home/runner/work/ESP32Marauder/ESP32Marauder/bin
+          echo "$HOME/bin" >> $GITHUB_PATH
+          export PATH="$HOME/bin:$PATH"
           arduino-cli version
-
-      #- name: Install Arduino-ESP32 Core v${{ matrix.board.idf_ver }}
-      #  run: |
-      #    arduino-cli core update-index
-      #    arduino-cli core install esp32:esp32@${{ matrix.board.idf_ver }}
 
       - name: Verify Installed Cores
         run: arduino-cli core list
@@ -49,70 +54,38 @@ jobs:
 
       - name: Verify Installed Cores Again
         run: arduino-cli core list
-          
+
       - name: Show Arduino dir structure
         run: |
-          find /home/runner/.arduino15/packages/esp32/hardware/
-          
+          find /home/runner/.arduino15/packages/esp32/hardware/ -maxdepth 3 -type d -print || true
+
       - name: Install ESP32Ping
         uses: actions/checkout@v2
         with:
           repository: marian-craciunescu/ESP32Ping
           ref: 1.6
           path: CustomESP32Ping
-          
+
       - name: Install AsyncTCP
         uses: actions/checkout@v2
         with:
           repository: ESP32Async/AsyncTCP
           ref: v3.4.8
           path: CustomAsyncTCP
-          
+
       - name: Install MicroNMEA
         uses: actions/checkout@v2
         with:
           repository: stevemarple/MicroNMEA
           ref: v2.0.6
           path: CustomMicroNMEA
-          
+
       - name: Install ESPAsyncWebServer
         uses: actions/checkout@v2
         with:
           repository: ESP32Async/ESPAsyncWebServer
           ref: v3.8.1
           path: CustomESPAsyncWebServer
-      
-      #- name: Install ESPAsyncWebServer
-      #  run: |
-      #    cp -r libraries/ESPAsyncWebServer ./CustomESPAsyncWebServer
-          
-      - name: Install TFT_eSPI
-        uses: actions/checkout@v2
-        with:
-          repository: Bodmer/TFT_eSPI
-          ref: V2.5.34
-          path: CustomTFT_eSPI
-          
-      - name: Install XPT2046_Touchscreen
-        uses: actions/checkout@v2
-        with:
-          repository: PaulStoffregen/XPT2046_Touchscreen
-          ref: v1.4
-          path: CustomXPT2046_Touchscreen
-
-      - name: Install lv_arduino
-        uses: actions/checkout@v2
-        with:
-          repository: lvgl/lv_arduino
-          ref: 3.0.0
-          path: Customlv_arduino
-
-      - name: Install JPEGDecoder
-        uses: actions/checkout@v2
-        with:
-          repository: Bodmer/JPEGDecoder
-          ref: 1.8.0
-          path: CustomJPEGDecoder
 
       - name: Install NimBLE-Arduino
         uses: actions/checkout@v2
@@ -134,46 +107,82 @@ jobs:
           repository: bblanchon/ArduinoJson
           ref: v6.18.2
           path: CustomArduinoJson
-          
+
       - name: Install LinkedList
         uses: actions/checkout@v2
         with:
           repository: ivanseidel/LinkedList
           ref: v1.3.3
           path: CustomLinkedList
-          
+
       - name: Install EspSoftwareSerial
         uses: actions/checkout@v2
         with:
           repository: plerup/espsoftwareserial
           ref: 8.1.0
           path: CustomEspSoftwareSerial
-          
+
       - name: Install Adafruit_BusIO
         uses: actions/checkout@v2
         with:
           repository: adafruit/Adafruit_BusIO
           ref: 1.15.0
           path: CustomAdafruit_BusIO
-          
+
       - name: Install Adafruit_MAX1704X
         uses: actions/checkout@v2
         with:
           repository: adafruit/Adafruit_MAX1704X
           ref: 1.0.2
           path: CustomAdafruit_MAX1704X
-          
+
       - name: Show Libraries
         run: |
-          find /home/runner/ -name "Custom*"
-          
-      - name: Configure TFT_eSPI
+          find /home/runner/ -name "Custom*" -maxdepth 3 -print || true
+
+      # tylko gdy przy danym targetcie tft==true instalujemy biblioteki TFT i configujemy je
+      - name: Install TFT_eSPI
+        if: ${{ matrix.board.tft == true }}
+        uses: actions/checkout@v2
+        with:
+          repository: Bodmer/TFT_eSPI
+          ref: V2.5.34
+          path: CustomTFT_eSPI
+
+      - name: Install XPT2046_Touchscreen
+        if: ${{ matrix.board.tft == true }}
+        uses: actions/checkout@v2
+        with:
+          repository: PaulStoffregen/XPT2046_Touchscreen
+          ref: v1.4
+          path: CustomXPT2046_Touchscreen
+
+      - name: Install lv_arduino
+        if: ${{ matrix.board.tft == true }}
+        uses: actions/checkout@v2
+        with:
+          repository: lvgl/lv_arduino
+          ref: 3.0.0
+          path: Customlv_arduino
+
+      - name: Install JPEGDecoder
+        if: ${{ matrix.board.tft == true }}
+        uses: actions/checkout@v2
+        with:
+          repository: Bodmer/JPEGDecoder
+          ref: 1.8.0
+          path: CustomJPEGDecoder
+
+      - name: Configure TFT_eSPI (if needed)
+        if: ${{ matrix.board.tft == true }}
         run: |
-          rm -f CustomTFT_eSPI/User_Setup_Select.h
-          cp User*.h CustomTFT_eSPI/
-          pwd
-          ls -la
-          ls -la CustomTFT_eSPI
+          rm -f CustomTFT_eSPI/User_Setup_Select.h || true
+          # kopiuj wszystkie User_*.h z repo root (jeśli masz różne konfiguracje)
+          cp User*.h CustomTFT_eSPI/ || true
+          echo "User_Setup_Select now:"
+          sed -n '1,120p' CustomTFT_eSPI/User_Setup_Select.h || true
+          # uncomment include line if present (expand matrix var correctly)
+          sed -i "s@^//\s*#include\s*<${{ matrix.board.tft_file }}>@#include <${{ matrix.board.tft_file }}>@g" CustomTFT_eSPI/User_Setup_Select.h || true
 
       - name: Install Esptool
         run: |
@@ -181,46 +190,48 @@ jobs:
 
       - name: Modify platform.txt
         run: |
-          if [[ ${{ matrix.board.idf_ver }} == "2.0.11" ]]; then
+          if [[ "${{ matrix.board.idf_ver }}" == "2.0.11" ]]; then
             for i in $(find /home/runner/.arduino15/packages/esp32/hardware/esp32/ -name "platform.txt"); do
               sed -i 's/compiler.c.elf.libs.esp32c3=/compiler.c.elf.libs.esp32c3=-zmuldefs /' "$i"
               sed -i 's/compiler.c.elf.libs.esp32s3=/compiler.c.elf.libs.esp32s3=-zmuldefs /' "$i"
               sed -i 's/compiler.c.elf.libs.esp32s2=/compiler.c.elf.libs.esp32s2=-zmuldefs /' "$i"
               sed -i 's/compiler.c.elf.libs.esp32=/compiler.c.elf.libs.esp32=-zmuldefs /' "$i"
-              cat "$i" | grep compiler.c.elf.libs.esp32c3
-              cat "$i" | grep compiler.c.elf.libs.esp32s3
-              cat "$i" | grep compiler.c.elf.libs.esp32s2
-              cat "$i" | grep compiler.c.elf.libs.esp32
+              grep -E "compiler.c.elf.libs.esp32|compiler.c.elf.libs.esp32s3|compiler.c.elf.libs.esp32s2|compiler.c.elf.libs.esp32c3" "$i" || true
             done
           fi
-          
-          if [[ ${{ matrix.board.idf_ver }} == "3.3.0" ]]; then
+
+          if [[ "${{ matrix.board.idf_ver }}" == "3.3.0" ]]; then
             for i in $(find /home/runner/.arduino15/packages/esp32/hardware/esp32/ -name "platform.txt"); do
               sed -i 's/compiler.c.elf.extra_flags=/compiler.c.elf.extra_flags=-Wl,-zmuldefs /' "$i"
             done
           fi
-          
-      - name: Configure TFT_eSPI (if needed)
+
+      # Wymuś jedyny target XIAO w configs.h, żeby nie wciągać kodu od ekranów
+      - name: Force XIAO target in configs.h (no screen)
         run: |
-          pwd
-          if [[ ${{ matrix.board.tft }} == true ]]; then
-            find /home/runner/ -name "*TFT_eSPI*"
-            sed -i 's/^\/\/#include <${{ matrix.board.tft_file }}>/#include <${{ matrix.board.tft_file }}>/' /home/runner/work/ESP32Marauder/ESP32Marauder/CustomTFT_eSPI/User_Setup_Select.h
+          CFG=./esp32_marauder/configs.h
+          # zakomentuj znane ekranowe targety, jeśli są
+          sed -i 's/^[[:space:]]*#define[[:space:]]\+MARAUDER_MULTIBOARD_S3/\/\/&/' "$CFG" || true
+          sed -i 's/^[[:space:]]*#define[[:space:]]\+MARAUDER_CARDPUTER/\/\/&/' "$CFG" || true
+          # upewnij się, że XIAO_ESP32_S3 jest włączony
+          if ! grep -q '^[[:space:]]*#define[[:space:]]\+XIAO_ESP32_S3' "$CFG"; then
+            sed -i '1i#define XIAO_ESP32_S3' "$CFG"
           fi
+          echo "Active board-related lines in configs.h:"
+          grep -nE 'BOARD TARGETS|#define (XIAO_ESP32_S3|MARAUDER_)' "$CFG" || true
 
       - name: Build Marauder for ${{ matrix.board.name }}
         uses: ArminJo/arduino-test-compile@v3.3.0
         with:
           sketch-names: esp32_marauder.ino
           arduino-board-fqbn: ${{ matrix.board.fbqn }}
-          extra-arduino-cli-args: "--warnings none --build-property compiler.cpp.extra_flags='-D${{ matrix.board.flag }}'"
           arduino-platform: esp32:esp32@${{ matrix.board.idf_ver }}
           platform-url: https://github.com/espressif/arduino-esp32/releases/download/${{ matrix.board.idf_ver }}/package_esp32_dev_index.json
+          extra-arduino-cli-args: >-
+            --warnings none
+            --build-property
+            compiler.cpp.extra_flags='-D${{ matrix.board.flag }}'
 
-      #- name: Rename Marauder ${{ matrix.board.name }} bin
-      #  run: |
-      #    mv ./esp32_marauder/build/esp32.esp32.${{ matrix.board.build_dir }}/esp32_marauder.ino.bin ./esp32_marauder/build/esp32.esp32.${{ matrix.board.build_dir }}/esp32_marauder.${{ matrix.board.file_name }}.bin
-      
       - name: Rename and Upload ${{ matrix.board.name }} Artifact
         run: |
           VERSION=$(grep '#define MARAUDER_VERSION' ./esp32_marauder/configs.h | sed -E 's/.*"v([^"]+)"/v\1/' | tr '.' '_')
@@ -230,10 +241,16 @@ jobs:
           INPUT_BIN=$BUILD_DIR/esp32_marauder.ino.bin
           OUTPUT_BIN=esp32_marauder_${VERSION}_${DATE}_${{ matrix.board.file_name }}.bin
 
-          mv "$INPUT_BIN" "$BUILD_DIR/$OUTPUT_BIN"
+          if [ -f "$INPUT_BIN" ]; then
+            mv "$INPUT_BIN" "$BUILD_DIR/$OUTPUT_BIN"
+            echo "artifact_name=$OUTPUT_BIN" >> $GITHUB_ENV
+            echo "artifact_path=$BUILD_DIR/$OUTPUT_BIN" >> $GITHUB_ENV
+          else
+            echo "ERROR: expected build output $INPUT_BIN not found"
+            ls -la "$BUILD_DIR" || true
+            exit 1
+          fi
 
-          echo "artifact_name=$OUTPUT_BIN" >> $GITHUB_ENV
-          echo "artifact_path=$BUILD_DIR/$OUTPUT_BIN" >> $GITHUB_ENV
       - name: Upload ${{ matrix.board.name }} Artifact
         uses: actions/upload-artifact@v4
         with:
@@ -246,7 +263,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [compile_sketch]
     if: ${{ github.event_name == 'workflow_dispatch' }}
-    steps: 
+    steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
@@ -278,10 +295,6 @@ jobs:
             ### MARAUDER V6/V6.X WARNING
             **Please check which Marauder you are using by looking at the front face of the PCB (side with the screen). If it says v6.1 (or .2), use the v6.1 bin. If it says v6, use the v6 bin.**
 
-            ## ESP32-C5 (5GHz support)
-            Please see our [installation guide](https://github.com/justcallmekoko/ESP32Marauder/wiki/ESP32%E2%80%90C5%E2%80%90DevKitC%E2%80%901) for installing the Marauder firmware on your ESP32-C5-DevKitC-1
-
             | Hardware | Binary Version |
             | -------- | -------------- |
             | XIAO_ESP32_S3 | `xiaos3.bin` |
-            | M5 Cardputer | `_m5cardputer.bin` (Available on M5 Burner) |
