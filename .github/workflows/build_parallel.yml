@@ -32,24 +32,13 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v3
 
-      # Stabilny install arduino-cli do $HOME/bin + PATH
+      # Arduino CLI bez bólu (w PATH w kolejnych krokach)
       - name: Install Arduino CLI
-        run: |
-          set -eux
-          VER="1.3.1"
-          ARCH="Linux_64bit"
-          TAR="arduino-cli_${VER}_${ARCH}.tar.gz"
-          URL="https://downloads.arduino.cc/arduino-cli/${TAR}"
-          mkdir -p "$HOME/bin"
-          curl -fsSL "$URL" -o "/tmp/$TAR"
-          tar -xzf "/tmp/$TAR" -C "$HOME/bin" --strip-components=1 arduino-cli
-          chmod +x "$HOME/bin/arduino-cli"
-          echo "$HOME/bin" >> "$GITHUB_PATH"
-          # sanity
-          which arduino-cli || true
-          arduino-cli version
+        uses: arduino/setup-arduino-cli@v1
+        with:
+          version: latest
 
-      - name: Install ESP32 Core ${{ matrix.board.idf_ver }}
+      - name: ESP32 Core ${{ matrix.board.idf_ver }}
         run: |
           set -eux
           URL="https://github.com/espressif/arduino-esp32/releases/download/${{ matrix.board.idf_ver }}/package_esp32_dev_index.json"
@@ -57,7 +46,7 @@ jobs:
           arduino-cli core install esp32:esp32@${{ matrix.board.idf_ver }} --additional-urls "$URL"
           arduino-cli core list
 
-      # Opcjonalny smoke test toolchainu
+      # (opcjonalny) smoke test toolchainu
       - name: Build TestFile with ESP32 v${{ matrix.board.idf_ver }}
         uses: ArminJo/arduino-test-compile@v3.2.1
         with:
@@ -66,11 +55,7 @@ jobs:
           arduino-platform: esp32:esp32@${{ matrix.board.idf_ver }}
           platform-url: https://github.com/espressif/arduino-esp32/releases/download/${{ matrix.board.idf_ver }}/package_esp32_dev_index.json
 
-      - name: Show Arduino dir structure
-        run: |
-          find /home/runner/.arduino15/packages/esp32/hardware/ -maxdepth 3 -type d -print || true
-
-      # === Biblioteki potrzebne Marauderowi ===
+      # ==== Biblioteki wymagane przez Maraudera (headless – bez TFT) ====
       - name: Install ESP32Ping
         uses: actions/checkout@v2
         with:
@@ -148,7 +133,7 @@ jobs:
           ref: 1.0.2
           path: CustomAdafruit_MAX1704X
 
-      - name: Stage Arduino libraries (move Custom* to ~/Arduino/libraries)
+      - name: Stage Arduino libraries
         run: |
           set -eux
           mkdir -p "$HOME/Arduino/libraries"
@@ -157,50 +142,7 @@ jobs:
           done
           find "$HOME/Arduino/libraries" -maxdepth 2 -type d -name "Custom*" -print
 
-      # TFT rzeczy tylko gdy tft==true (u Ciebie false, więc się pominie)
-      - name: Install TFT_eSPI
-        if: ${{ matrix.board.tft == true }}
-        uses: actions/checkout@v2
-        with:
-          repository: Bodmer/TFT_eSPI
-          ref: V2.5.34
-          path: CustomTFT_eSPI
-
-      - name: Install XPT2046_Touchscreen
-        if: ${{ matrix.board.tft == true }}
-        uses: actions/checkout@v2
-        with:
-          repository: PaulStoffregen/XPT2046_Touchscreen
-          ref: v1.4
-          path: CustomXPT2046_Touchscreen
-
-      - name: Install lv_arduino
-        if: ${{ matrix.board.tft == true }}
-        uses: actions/checkout@v2
-        with:
-          repository: lvgl/lv_arduino
-          ref: 3.0.0
-          path: Customlv_arduino
-
-      - name: Install JPEGDecoder
-        if: ${{ matrix.board.tft == true }}
-        uses: actions/checkout@v2
-        with:
-          repository: Bodmer/JPEGDecoder
-          ref: 1.8.0
-          path: CustomJPEGDecoder
-
-      - name: Configure TFT_eSPI (if needed)
-        if: ${{ matrix.board.tft == true }}
-        run: |
-          rm -f CustomTFT_eSPI/User_Setup_Select.h || true
-          cp User*.h CustomTFT_eSPI/ || true
-          sed -i "s@^//\s*#include\s*<${{ matrix.board.tft_file }}>@#include <${{ matrix.board.tft_file }}>@g" CustomTFT_eSPI/User_Setup_Select.h || true
-
-      - name: Install Esptool
-        run: pip install esptool
-
-      # Hack -zmuldefs dla 2.0.11 (zostaw, jeśli kiedyś wyskoczą multiple definition)
+      # Opcjonalny hack -zmuldefs (zostaw, jeśli trafią się multiple definition)
       - name: Modify platform.txt (optional)
         run: |
           if [[ "${{ matrix.board.idf_ver }}" == "2.0.11" ]]; then
@@ -213,8 +155,8 @@ jobs:
             done
           fi
 
-      # Wymuś XIAO + wyłącz ekrany w configs.h (asekuracyjnie)
-      - name: Force XIAO target in configs.h (no screen)
+      # Wymuś XIAO i wyłącz ekrany w configs.h (asekuracyjnie)
+      - name: Force XIAO target in configs.h (headless + Flipper)
         run: |
           set -eux
           CFG=./esp32_marauder/configs.h
@@ -238,7 +180,7 @@ jobs:
           extra-arduino-cli-args: >-
             --warnings none
             --build-property
-            compiler.cpp.extra_flags='-D${{ matrix.board.flag }} -DHEADLESS -DENABLE_FLIPPER_COMPANION -DHAS_PSRAM'
+            compiler.cpp.extra_flags='-D${{ matrix.board.flag }} -DHEADLESS -DENABLE_FLIPPER_COMPANION -DFLIPPER_SD -DHAS_PSRAM'
 
       - name: Rename and Upload ${{ matrix.board.name }} Artifact
         run: |
@@ -285,17 +227,7 @@ jobs:
           files: |
             esp32_marauder_v*.bin
           body: |
-            [justcallmekokollc.com](https://justcallmekokollc.com)
-
-            **Flipper Zero Marauder Companion App:**
-            Be sure to install the latest version of the Marauder Companion to use these features on your Flipper Zero.
-
-            **Additional Resources**
-            - Project Issues
-            - Install/Update Instructions
-            - ESP32 Marauder companion app
-            - Discord
-
+            **Flipper Zero Marauder Companion App:** zainstaluj najnowszą wersję, aby korzystać z funkcji headless.
             | Hardware        | Binary Version |
             | --------------  | -------------- |
             | XIAO_ESP32_S3   | `xiaos3.bin`   |
