@@ -41,8 +41,24 @@ jobs:
           URL="https://github.com/arduino/arduino-cli/releases/download/v${VER}/${TAR}"
           curl -fsSL "$URL" -o "/tmp/$TAR"
           tar -xzf "/tmp/$TAR" -C /tmp
-          # tar daje /tmp/arduino-cli (pojedynczy plik), więc przenieś go stąd:
-          sudo mv /tmp/arduino-cli /usr/local/bin/arduino-cli
+
+          # Support different archive layouts:
+          if [ -f "/tmp/arduino-cli" ]; then
+            sudo mv "/tmp/arduino-cli" /usr/local/bin/arduino-cli
+          elif [ -f "/tmp/arduino-cli_${VER}_${ARCH}/arduino-cli" ]; then
+            sudo mv "/tmp/arduino-cli_${VER}_${ARCH}/arduino-cli" /usr/local/bin/arduino-cli
+          else
+            # fallback: find any arduino-cli binary in /tmp
+            BIN=$(find /tmp -maxdepth 2 -type f -name 'arduino-cli' -print -quit)
+            if [ -n "$BIN" ]; then
+              sudo mv "$BIN" /usr/local/bin/arduino-cli
+            else
+              echo "ERROR: arduino-cli binary not found after extracting $TAR"
+              ls -la /tmp || true
+              exit 1
+            fi
+          fi
+
           sudo chmod +x /usr/local/bin/arduino-cli
           arduino-cli version
 
@@ -192,10 +208,9 @@ jobs:
           arduino-board-fqbn: ${{ matrix.board.fbqn }}
           arduino-platform: esp32:esp32@${{ matrix.board.idf_ver }}
           platform-url: https://github.com/espressif/arduino-esp32/releases/download/${{ matrix.board.idf_ver }}/package_esp32_dev_index.json
-          extra-arduino-cli-args: >-
+          extra-arduino-cli-args: |
             --warnings none
-            --build-property
-            compiler.cpp.extra_flags='-D${{ matrix.board.flag }} -DHEADLESS -DENABLE_FLIPPER_COMPANION -DFLIPPER_SD -DHAS_PSRAM'
+            --build-property "compiler.cpp.extra_flags=-D${{ matrix.board.flag }} -DHEADLESS -DENABLE_FLIPPER_COMPANION -DFLIPPER_SD -DHAS_PSRAM"
 
       - name: Rename and Upload ${{ matrix.board.name }} Artifact
         run: |
