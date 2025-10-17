@@ -20,7 +20,7 @@ jobs:
           - name: "xiaos3plus"
             flag: "XIAO_ESP32_S3"
             # Używamy domyślnego PartitionScheme dla XIAO ESP32S3
-            fbqn: "esp32:esp32:XIAO_ESP32S3:FlashMode=qio,FlashSize=8M,PartitionScheme=default,UploadSpeed=921600,DebugLevel=none,PSRAM=opi"
+            fbqn: "esp32:esp32:XIAO_ESP32S3:FlashSize=8M,PSRAM=opi"
             file_name: "xiaos3plus"
             build_dir: "esp32s3"
             idf_ver: "2.0.10"
