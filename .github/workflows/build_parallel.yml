@@ -208,10 +208,10 @@ jobs:
           RC=${PIPESTATUS[0]}
           set -e
           if [ $RC -ne 0 ] && grep -qi "invalid value.*FlashSize" "$LOG"; then
-            echo "== RETRY: FlashSize=8MB (core nie przyjął 16MB) =="
+            echo "== RETRY: FlashSize=16MB (core nie przyjął 16MB) =="
             arduino-cli compile \
               --fqbn "${{ matrix.board.fbqn }}" \
-              --board-options "FlashSize=8MB,PSRAM=opi" \
+              --board-options "FlashSize=16MB,PSRAM=opi" \
               --additional-urls "$PKG_URL" \
               --warnings none \
               --build-property "compiler.cpp.extra_flags=-D${{ matrix.board.flag }} -DHEADLESS -DENABLE_FLIPPER_COMPANION -DFLIPPER_SD -DHAS_PSRAM" \
