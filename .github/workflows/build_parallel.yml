@@ -1,4 +1,3 @@
-
 name: Build and Push Parallel
 
 on:
@@ -18,12 +17,12 @@ jobs:
       fail-fast: false
       matrix:
         board:
-          - { name: "XIAO_ESP32_S3"",                flag: "XIAO_ESP32_S3",            fbqn: "esp32:esp32:esp32s3:PartitionScheme=min_spiffs,FlashSize=8M,PSRAM=disabled",                    file_name: "XIAO_ESP32_S3"",          tft: false,  tft_file: "",  build_dir: "esp32s3",                                                    addr: "0x0",      idf_ver: "2.0.11",   nimble_ver: "1.3.8",    esp_async: "bigbrodude6119/ESPAsyncWebServer",    esp_async_ver: "master" }
-          
+          - { name: "xiaos3plus", flag: "XIAO_ESP32_S3", fbqn: "esp32:esp32:XIAO_ESP32S3:PartitionScheme=min_spiffs,FlashSize=8M,PSRAM=opi", file_name: "xiaos3plus", tft: false, tft_file: "", build_dir: "esp32s3", addr: "0x0", idf_ver: "2.0.10", nimble_ver: "1.3.8", esp_async: "bigbrodude6119/ESPAsyncWebServer", esp_async_ver: "master" }
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
-          
+
       - name: Install Arduino CLI
         run: |
           curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh
@@ -31,68 +30,56 @@ jobs:
           export PATH=$PATH:/home/runner/work/ESP32Marauder/ESP32Marauder/bin
           arduino-cli version
 
-      #- name: Install Arduino-ESP32 Core v${{ matrix.board.idf_ver }}
-      #  run: |
-      #    arduino-cli core update-index
-      #    arduino-cli core install esp32:esp32@${{ matrix.board.idf_ver }}
-
-      - name: Verify Installed Cores
-        run: arduino-cli core list
-
-      - name: Build TestFile with ESP32 v${{ matrix.board.idf_ver }}
-        uses: ArminJo/arduino-test-compile@v3.2.1
-        with:
-          sketch-names: TestFile.ino
-          arduino-board-fqbn: esp32:esp32:esp32s2
-          arduino-platform: esp32:esp32@${{ matrix.board.idf_ver }}
-          platform-url: https://github.com/espressif/arduino-esp32/releases/download/${{ matrix.board.idf_ver }}/package_esp32_dev_index.json
-
-      - name: Verify Installed Cores Again
-        run: arduino-cli core list
-          
-      - name: Show Arduino dir structure
+      - name: Init arduino-cli config and paths
         run: |
-          find /home/runner/.arduino15/packages/esp32/hardware/
-          
+          arduino-cli config init
+          arduino-cli config set directories.data "$HOME/.arduino15"
+          arduino-cli config set directories.downloads "$HOME/.arduino15/staging"
+          arduino-cli config set directories.user "$HOME/Arduino"
+          arduino-cli config dump
+
+      - name: Install ESP32 Core v${{ matrix.board.idf_ver }}
+        run: |
+          URL="https://github.com/espressif/arduino-esp32/releases/download/${{ matrix.board.idf_ver }}/package_esp32_dev_index.json"
+          arduino-cli core update-index --additional-urls "$URL"
+          arduino-cli core install esp32:esp32@${{ matrix.board.idf_ver }} --additional-urls "$URL"
+          arduino-cli core list
+
       - name: Install ESP32Ping
         uses: actions/checkout@v2
         with:
           repository: marian-craciunescu/ESP32Ping
           ref: 1.6
           path: CustomESP32Ping
-          
+
       - name: Install AsyncTCP
         uses: actions/checkout@v2
         with:
           repository: ESP32Async/AsyncTCP
-          ref: v3.4.8
+          ref: v3.4.9
           path: CustomAsyncTCP
-          
+
       - name: Install MicroNMEA
         uses: actions/checkout@v2
         with:
           repository: stevemarple/MicroNMEA
           ref: v2.0.6
           path: CustomMicroNMEA
-          
+
       - name: Install ESPAsyncWebServer
         uses: actions/checkout@v2
         with:
-          repository: ESP32Async/ESPAsyncWebServer
-          ref: v3.8.1
+          repository: ${{ matrix.board.esp_async }}
+          ref: ${{ matrix.board.esp_async_ver }}
           path: CustomESPAsyncWebServer
-      
-      #- name: Install ESPAsyncWebServer
-      #  run: |
-      #    cp -r libraries/ESPAsyncWebServer ./CustomESPAsyncWebServer
-          
+
       - name: Install TFT_eSPI
         uses: actions/checkout@v2
         with:
           repository: Bodmer/TFT_eSPI
           ref: V2.5.34
           path: CustomTFT_eSPI
-          
+
       - name: Install XPT2046_Touchscreen
         uses: actions/checkout@v2
         with:
@@ -134,39 +121,57 @@ jobs:
           repository: bblanchon/ArduinoJson
           ref: v6.18.2
           path: CustomArduinoJson
-          
+
       - name: Install LinkedList
         uses: actions/checkout@v2
         with:
           repository: ivanseidel/LinkedList
           ref: v1.3.3
           path: CustomLinkedList
-          
+
       - name: Install EspSoftwareSerial
         uses: actions/checkout@v2
         with:
           repository: plerup/espsoftwareserial
           ref: 8.1.0
           path: CustomEspSoftwareSerial
-          
+
       - name: Install Adafruit_BusIO
         uses: actions/checkout@v2
         with:
           repository: adafruit/Adafruit_BusIO
           ref: 1.15.0
           path: CustomAdafruit_BusIO
-          
+
       - name: Install Adafruit_MAX1704X
         uses: actions/checkout@v2
         with:
           repository: adafruit/Adafruit_MAX1704X
           ref: 1.0.2
           path: CustomAdafruit_MAX1704X
-          
-      - name: Show Libraries
+
+      - name: Stage Arduino libraries (strip Custom* -> official names)
+        run: |
+          set -eux
+          mkdir -p "$HOME/Arduino/libraries"
+          shopt -s nullglob
+          for d in Custom*; do
+            [ -d "$d" ] || continue
+            base="${d#Custom}"
+            [ "$d" = "CustomNimBLE-Arduino" ] && base="NimBLE-Arduino"
+            rm -rf "$HOME/Arduino/libraries/$base"
+            cp -a "$d" "$HOME/Arduino/libraries/$base"
+          done
+          echo "==== libraries staged ===="
+          find "$HOME/Arduino/libraries" -maxdepth 1 -mindepth 1 -type d -printf "%f\n" | sort
+          echo "==== arduino-cli lib list ===="
+          arduino-cli lib list || true
+
+      - name: Show Libraries (debug)
         run: |
           find /home/runner/ -name "Custom*"
-          
+          ls -la $HOME/Arduino/libraries
+
       - name: Configure TFT_eSPI
         run: |
           rm -f CustomTFT_eSPI/User_Setup_Select.h
@@ -176,12 +181,11 @@ jobs:
           ls -la CustomTFT_eSPI
 
       - name: Install Esptool
-        run: |
-          pip install esptool
+        run: pip install esptool
 
       - name: Modify platform.txt
         run: |
-          if [[ ${{ matrix.board.idf_ver }} == "2.0.11" ]]; then
+          if [[ ${{ matrix.board.idf_ver }} == "2.0.10" ]]; then
             for i in $(find /home/runner/.arduino15/packages/esp32/hardware/esp32/ -name "platform.txt"); do
               sed -i 's/compiler.c.elf.libs.esp32c3=/compiler.c.elf.libs.esp32c3=-zmuldefs /' "$i"
               sed -i 's/compiler.c.elf.libs.esp32s3=/compiler.c.elf.libs.esp32s3=-zmuldefs /' "$i"
@@ -193,13 +197,7 @@ jobs:
               cat "$i" | grep compiler.c.elf.libs.esp32
             done
           fi
-          
-          if [[ ${{ matrix.board.idf_ver }} == "3.3.0" ]]; then
-            for i in $(find /home/runner/.arduino15/packages/esp32/hardware/esp32/ -name "platform.txt"); do
-              sed -i 's/compiler.c.elf.extra_flags=/compiler.c.elf.extra_flags=-Wl,-zmuldefs /' "$i"
-            done
-          fi
-          
+
       - name: Configure TFT_eSPI (if needed)
         run: |
           pwd
@@ -208,32 +206,45 @@ jobs:
             sed -i 's/^\/\/#include <${{ matrix.board.tft_file }}>/#include <${{ matrix.board.tft_file }}>/' /home/runner/work/ESP32Marauder/ESP32Marauder/CustomTFT_eSPI/User_Setup_Select.h
           fi
 
+      - name: Force XIAO target in configs.h (headless + Flipper)
+        run: |
+          set -eux
+          CFG=./esp32_marauder/configs.h
+          sed -i 's/^[[:space:]]*#define[[:space:]]\+MARAUDER_MULTIBOARD_S3/\/\/&/' "$CFG" || true
+          sed -i 's/^[[:space:]]*#define[[:space:]]\+MARAUDER_CARDPUTER/\/\/&/' "$CFG" || true
+          if ! grep -q '^[[:space:]]*#define[[:space:]]\+XIAO_ESP32_S3' "$CFG"; then
+            sed -i '1i#define XIAO_ESP32_S3' "$CFG"
+          fi
+          echo "Board lines in configs.h:"
+          grep -nE '^#define (XIAO_ESP32_S3|MARAUDER_)' "$CFG" || true
+
       - name: Build Marauder for ${{ matrix.board.name }}
         uses: ArminJo/arduino-test-compile@v3.3.0
         with:
           sketch-names: esp32_marauder.ino
           arduino-board-fqbn: ${{ matrix.board.fbqn }}
-          extra-arduino-cli-args: "--warnings none --build-property compiler.cpp.extra_flags='-D${{ matrix.board.flag }}'"
+          extra-arduino-cli-args: "--warnings none --build-property compiler.cpp.extra_flags='-D${{ matrix.board.flag }} -DHEADLESS -DENABLE_FLIPPER_COMPANION -DFLIPPER_SD -DHAS_PSRAM' --build-property compiler.c.extra_flags='-D${{ matrix.board.flag }} -DHEADLESS -DENABLE_FLIPPER_COMPANION -DFLIPPER_SD -DHAS_PSRAM'"
           arduino-platform: esp32:esp32@${{ matrix.board.idf_ver }}
           platform-url: https://github.com/espressif/arduino-esp32/releases/download/${{ matrix.board.idf_ver }}/package_esp32_dev_index.json
 
-      #- name: Rename Marauder ${{ matrix.board.name }} bin
-      #  run: |
-      #    mv ./esp32_marauder/build/esp32.esp32.${{ matrix.board.build_dir }}/esp32_marauder.ino.bin ./esp32_marauder/build/esp32.esp32.${{ matrix.board.build_dir }}/esp32_marauder.${{ matrix.board.file_name }}.bin
-      
       - name: Rename and Upload ${{ matrix.board.name }} Artifact
         run: |
+          set -eux
           VERSION=$(grep '#define MARAUDER_VERSION' ./esp32_marauder/configs.h | sed -E 's/.*"v([^"]+)"/v\1/' | tr '.' '_')
           DATE=$(date +%Y%m%d)
-
           BUILD_DIR=./esp32_marauder/build/esp32.esp32.${{ matrix.board.build_dir }}
-          INPUT_BIN=$BUILD_DIR/esp32_marauder.ino.bin
-          OUTPUT_BIN=esp32_marauder_${VERSION}_${DATE}_${{ matrix.board.file_name }}.bin
+          INPUT_BIN="$BUILD_DIR/esp32_marauder.ino.bin"
+          OUTPUT_BIN="esp32_marauder_${VERSION}_${DATE}_${{ matrix.board.file_name }}.bin"
+          if [ -f "$INPUT_BIN" ]; then
+            mv "$INPUT_BIN" "$BUILD_DIR/$OUTPUT_BIN"
+            echo "artifact_name=$OUTPUT_BIN" >> $GITHUB_ENV
+            echo "artifact_path=$BUILD_DIR/$OUTPUT_BIN" >> $GITHUB_ENV
+          else
+            echo "ERROR: expected build output $INPUT_BIN not found"
+            ls -la "$BUILD_DIR" || true
+            exit 1
+          fi
 
-          mv "$INPUT_BIN" "$BUILD_DIR/$OUTPUT_BIN"
-
-          echo "artifact_name=$OUTPUT_BIN" >> $GITHUB_ENV
-          echo "artifact_path=$BUILD_DIR/$OUTPUT_BIN" >> $GITHUB_ENV
       - name: Upload ${{ matrix.board.name }} Artifact
         uses: actions/upload-artifact@v4
         with:
@@ -246,7 +257,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [compile_sketch]
     if: ${{ github.event_name == 'workflow_dispatch' }}
-    steps: 
+    steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
@@ -283,4 +294,4 @@ jobs:
 
             | Hardware | Binary Version |
             | -------- | -------------- |
-            
+            | XIAO_ESP32S3 Plus | `xiaos3plus.bin` |
