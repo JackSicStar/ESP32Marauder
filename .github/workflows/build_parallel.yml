@@ -32,18 +32,18 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v3
 
-      # Stabilna instalacja arduino-cli (bin do /usr/local/bin)
-    - name: Install Arduino CLI (latest)
-      run: |
-        set -eux
-        ARCH="Linux_64bit"
-        TAR="arduino-cli_${ARCH}.tar.gz"
-        URL="https://github.com/arduino/arduino-cli/releases/latest/download/arduino-cli_${ARCH}.tar.gz"
-        curl -fsSL "$URL" -o "/tmp/$TAR"
-        tar -xzf "/tmp/$TAR" -C /tmp
-        sudo mv /tmp/arduino-cli_*/arduino-cli /usr/local/bin/arduino-cli
-        sudo chmod +x /usr/local/bin/arduino-cli
-        arduino-cli version
+- name: Install Arduino CLI (pinned)
+  run: |
+    set -eux
+    VER="0.35.3"
+    ARCH="Linux_64bit"
+    TAR="arduino-cli_${VER}_${ARCH}.tar.gz"
+    URL="https://github.com/arduino/arduino-cli/releases/download/v${VER}/${TAR}"
+    curl -fsSL "$URL" -o "/tmp/$TAR"
+    tar -xzf "/tmp/$TAR" -C /tmp
+    sudo mv "/tmp/arduino-cli_${VER}_${ARCH}/arduino-cli" /usr/local/bin/arduino-cli
+    sudo chmod +x /usr/local/bin/arduino-cli
+    arduino-cli version
           
 
       - name: Install ESP32 Core ${{ matrix.board.idf_ver }}
