@@ -48,7 +48,6 @@ jobs:
           elif [ -f "/tmp/arduino-cli_${VER}_${ARCH}/arduino-cli" ]; then
             sudo mv "/tmp/arduino-cli_${VER}_${ARCH}/arduino-cli" /usr/local/bin/arduino-cli
           else
-            # fallback: find any arduino-cli binary in /tmp
             BIN=$(find /tmp -maxdepth 2 -type f -name 'arduino-cli' -print -quit)
             if [ -n "$BIN" ]; then
               sudo mv "$BIN" /usr/local/bin/arduino-cli
@@ -61,6 +60,15 @@ jobs:
 
           sudo chmod +x /usr/local/bin/arduino-cli
           arduino-cli version
+
+      - name: Init arduino-cli config and paths
+        run: |
+          set -eux
+          arduino-cli config init
+          arduino-cli config set directories.data "$HOME/.arduino15"
+          arduino-cli config set directories.downloads "$HOME/.arduino15/staging"
+          arduino-cli config set directories.user "$HOME/Arduino"
+          arduino-cli config dump
 
       - name: Install ESP32 Core ${{ matrix.board.idf_ver }}
         run: |
@@ -161,14 +169,23 @@ jobs:
           ref: 1.0.2
           path: CustomAdafruit_MAX1704X
 
-      - name: Stage Arduino libraries
+      - name: Stage Arduino libraries (strip Custom* -> official names)
         run: |
           set -eux
           mkdir -p "$HOME/Arduino/libraries"
+          shopt -s nullglob
           for d in Custom*; do
-            [ -d "$d" ] && cp -a "$d" "$HOME/Arduino/libraries/" || true
+            [ -d "$d" ] || continue
+            base="${d#Custom}"
+            # ewentualne mapowania niestandardowe:
+            [ "$d" = "CustomNimBLE-Arduino" ] && base="NimBLE-Arduino"
+            rm -rf "$HOME/Arduino/libraries/$base"
+            cp -a "$d" "$HOME/Arduino/libraries/$base"
           done
-          find "$HOME/Arduino/libraries" -maxdepth 2 -type d -name "Custom*" -print
+          echo "==== libraries staged ===="
+          find "$HOME/Arduino/libraries" -maxdepth 1 -mindepth 1 -type d -printf "%f\n" | sort
+          echo "==== arduino-cli lib list ===="
+          arduino-cli lib list || true
 
       # Opcjonalny hack -zmuldefs dla 2.0.11 (tylko jeśli pojawią się multiple definition)
       - name: Modify platform.txt (optional)
@@ -188,10 +205,8 @@ jobs:
         run: |
           set -eux
           CFG=./esp32_marauder/configs.h
-          # wyłącz potencjalne ekranowe targety
           sed -i 's/^[[:space:]]*#define[[:space:]]\+MARAUDER_MULTIBOARD_S3/\/\/&/' "$CFG" || true
           sed -i 's/^[[:space:]]*#define[[:space:]]\+MARAUDER_CARDPUTER/\/\/&/' "$CFG" || true
-          # włącz XIAO
           if ! grep -q '^[[:space:]]*#define[[:space:]]\+XIAO_ESP32_S3' "$CFG"; then
             sed -i '1i#define XIAO_ESP32_S3' "$CFG"
           fi
@@ -201,6 +216,7 @@ jobs:
       - name: Install Esptool
         run: pip install esptool
 
+      # Build przez akcję (ładny interfejs) + właściwe quoting
       - name: Build Marauder for ${{ matrix.board.name }}
         uses: ArminJo/arduino-test-compile@v3.3.0
         with:
@@ -210,7 +226,23 @@ jobs:
           platform-url: https://github.com/espressif/arduino-esp32/releases/download/${{ matrix.board.idf_ver }}/package_esp32_dev_index.json
           extra-arduino-cli-args: |
             --warnings none
-            --build-property "compiler.cpp.extra_flags=-${{ matrix.board.flag }} -HEADLESS -ENABLE_FLIPPER_COMPANION -FLIPPER_SD -HAS_PSRAM"
+            --build-property "compiler.cpp.extra_flags=-D${{ matrix.board.flag }} -DHEADLESS -DENABLE_FLIPPER_COMPANION -DFLIPPER_SD -DHAS_PSRAM"
+
+      # Manualny compile z pełnym logiem - jakby akcja coś zjadła
+      - name: Compile (manual arduino-cli with full logs)
+        run: |
+          set -euxo pipefail
+          echo "== arduino-cli version ==" && arduino-cli version
+          echo "== FQBN ==" && echo "${{ matrix.board.fbqn }}"
+          echo "== libs ==" && arduino-cli lib list || true
+          echo "== compile =="
+          arduino-cli compile \
+            --fqbn "${{ matrix.board.fbqn }}" \
+            --warnings all \
+            --build-property "compiler.cpp.extra_flags=-D${{ matrix.board.flag }} -DHEADLESS -DENABLE_FLIPPER_COMPANION -DFLIPPER_SD -DHAS_PSRAM" \
+            --build-property "compiler.c.extra_flags=-D${{ matrix.board.flag }} -DHEADLESS -DENABLE_FLIPPER_COMPANION -DFLIPPER_SD -DHAS_PSRAM" \
+            ./esp32_marauder \
+            -v
 
       - name: Rename and Upload ${{ matrix.board.name }} Artifact
         run: |
