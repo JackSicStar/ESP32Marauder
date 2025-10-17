@@ -1,7 +1,7 @@
 name: Build and Push Parallel
 
 on:
-  workflow_dispatch:
+  workflow_dispatch:  # Ręczne uruchomienie
   push:
     branches:
       - master
@@ -11,26 +11,40 @@ on:
 
 jobs:
   compile_sketch:
-    name: build ${{ matrix.board.name }}
+    name: Build ${{ matrix.board.name }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         board:
-          - { name: "xiaos3plus", flag: "XIAO_ESP32_S3", fbqn: "esp32:esp32:XIAO_ESP32S3:PartitionScheme=min_spiffs,FlashSize=8M,PSRAM=opi", file_name: "xiaos3plus", tft: false, tft_file: "", build_dir: "esp32s3", addr: "0x0", idf_ver: "2.0.10", nimble_ver: "1.3.8", esp_async: "bigbrodude6119/ESPAsyncWebServer", esp_async_ver: "master" }
+          - name: "xiaos3plus"
+            flag: "XIAO_ESP32_S3"
+            fbqn: "esp32:esp32:XIAO_ESP32S3:PartitionScheme=min_spiffs,FlashSize=8M,PSRAM=opi"
+            file_name: "xiaos3plus"
+            tft: false
+            tft_file: ""
+            build_dir: "esp32s3"
+            addr: "0x0"
+            idf_ver: "2.0.10"
+            nimble_ver: "1.3.8"
+            esp_async: "bigbrodude6119/ESPAsyncWebServer"
+            esp_async_ver: "master"
 
     steps:
+      # Krok 1: Pobranie kodu
       - name: Checkout Code
         uses: actions/checkout@v3
 
+      # Krok 2: Instalacja Arduino CLI
       - name: Install Arduino CLI
         run: |
           curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh
-          echo "/home/runner/work/ESP32Marauder/ESP32Marauder/bin" >> $GITHUB_PATH
-          export PATH=$PATH:/home/runner/work/ESP32Marauder/ESP32Marauder/bin
+          echo "$GITHUB_WORKSPACE/bin" >> $GITHUB_PATH
+          export PATH=$PATH:$GITHUB_WORKSPACE/bin
           arduino-cli version
 
-      - name: Init arduino-cli config and paths
+      # Krok 3: Konfiguracja Arduino CLI
+      - name: Configure Arduino CLI
         run: |
           arduino-cli config init
           arduino-cli config set directories.data "$HOME/.arduino15"
@@ -38,6 +52,7 @@ jobs:
           arduino-cli config set directories.user "$HOME/Arduino"
           arduino-cli config dump
 
+      # Krok 4: Instalacja ESP32 Core
       - name: Install ESP32 Core v${{ matrix.board.idf_ver }}
         run: |
           URL="https://github.com/espressif/arduino-esp32/releases/download/${{ matrix.board.idf_ver }}/package_esp32_dev_index.json"
@@ -45,223 +60,154 @@ jobs:
           arduino-cli core install esp32:esp32@${{ matrix.board.idf_ver }} --additional-urls "$URL"
           arduino-cli core list
 
-      - name: Install ESP32Ping
-        uses: actions/checkout@v2
-        with:
-          repository: marian-craciunescu/ESP32Ping
-          ref: 1.6
-          path: CustomESP32Ping
-
-      - name: Install AsyncTCP
-        uses: actions/checkout@v2
-        with:
-          repository: ESP32Async/AsyncTCP
-          ref: v3.4.9
-          path: CustomAsyncTCP
-
-      - name: Install MicroNMEA
-        uses: actions/checkout@v2
-        with:
-          repository: stevemarple/MicroNMEA
-          ref: v2.0.6
-          path: CustomMicroNMEA
-
-      - name: Install ESPAsyncWebServer
-        uses: actions/checkout@v2
-        with:
-          repository: ${{ matrix.board.esp_async }}
-          ref: ${{ matrix.board.esp_async_ver }}
-          path: CustomESPAsyncWebServer
-
-      - name: Install TFT_eSPI
-        uses: actions/checkout@v2
-        with:
-          repository: Bodmer/TFT_eSPI
-          ref: V2.5.34
-          path: CustomTFT_eSPI
-
-      - name: Install XPT2046_Touchscreen
-        uses: actions/checkout@v2
-        with:
-          repository: PaulStoffregen/XPT2046_Touchscreen
-          ref: v1.4
-          path: CustomXPT2046_Touchscreen
-
-      - name: Install lv_arduino
-        uses: actions/checkout@v2
-        with:
-          repository: lvgl/lv_arduino
-          ref: 3.0.0
-          path: Customlv_arduino
-
-      - name: Install JPEGDecoder
-        uses: actions/checkout@v2
-        with:
-          repository: Bodmer/JPEGDecoder
-          ref: 1.8.0
-          path: CustomJPEGDecoder
-
-      - name: Install NimBLE-Arduino
-        uses: actions/checkout@v2
-        with:
-          repository: h2zero/NimBLE-Arduino
-          ref: ${{ matrix.board.nimble_ver }}
-          path: CustomNimBLE-Arduino
-
-      - name: Install Adafruit_NeoPixel
-        uses: actions/checkout@v2
-        with:
-          repository: adafruit/Adafruit_NeoPixel
-          ref: 1.12.0
-          path: CustomAdafruit_NeoPixel
-
-      - name: Install ArduinoJson
-        uses: actions/checkout@v2
-        with:
-          repository: bblanchon/ArduinoJson
-          ref: v6.18.2
-          path: CustomArduinoJson
-
-      - name: Install LinkedList
-        uses: actions/checkout@v2
-        with:
-          repository: ivanseidel/LinkedList
-          ref: v1.3.3
-          path: CustomLinkedList
-
-      - name: Install EspSoftwareSerial
-        uses: actions/checkout@v2
-        with:
-          repository: plerup/espsoftwareserial
-          ref: 8.1.0
-          path: CustomEspSoftwareSerial
-
-      - name: Install Adafruit_BusIO
-        uses: actions/checkout@v2
-        with:
-          repository: adafruit/Adafruit_BusIO
-          ref: 1.15.0
-          path: CustomAdafruit_BusIO
-
-      - name: Install Adafruit_MAX1704X
-        uses: actions/checkout@v2
-        with:
-          repository: adafruit/Adafruit_MAX1704X
-          ref: 1.0.2
-          path: CustomAdafruit_MAX1704X
-
-      - name: Stage Arduino libraries (strip Custom* -> official names)
+      # Krok 5: Instalacja bibliotek - ulepszona wersja
+      - name: Install Required Libraries
         run: |
-          set -eux
+          # Lista bibliotek do instalacji
+          declare -A libs=(
+            ["ESP32Ping"]="marian-craciunescu/ESP32Ping,1.6"
+            ["AsyncTCP"]="ESP32Async/AsyncTCP,v3.4.9"
+            ["MicroNMEA"]="stevemarple/MicroNMEA,v2.0.6"
+            ["ESPAsyncWebServer"]="${{ matrix.board.esp_async }},${{ matrix.board.esp_async_ver }}"
+            ["TFT_eSPI"]="Bodmer/TFT_eSPI,V2.5.34"
+            ["XPT2046_Touchscreen"]="PaulStoffregen/XPT2046_Touchscreen,v1.4"
+            ["lv_arduino"]="lvgl/lv_arduino,3.0.0"
+            ["JPEGDecoder"]="Bodmer/JPEGDecoder,1.8.0"
+            ["NimBLE-Arduino"]="h2zero/NimBLE-Arduino,${{ matrix.board.nimble_ver }}"
+            ["Adafruit_NeoPixel"]="adafruit/Adafruit_NeoPixel,1.12.0"
+            ["ArduinoJson"]="bblanchon/ArduinoJson,v6.18.2"
+            ["LinkedList"]="ivanseidel/LinkedList,v1.3.3"
+            ["EspSoftwareSerial"]="plerup/espsoftwareserial,8.1.0"
+            ["Adafruit_BusIO"]="adafruit/Adafruit_BusIO,1.15.0"
+            ["Adafruit_MAX1704X"]="adafruit/Adafruit_MAX1704X,1.0.2"
+          )
+
           mkdir -p "$HOME/Arduino/libraries"
-          shopt -s nullglob
-          for d in Custom*; do
-            [ -d "$d" ] || continue
-            base="${d#Custom}"
-            [ "$d" = "CustomNimBLE-Arduino" ] && base="NimBLE-Arduino"
-            rm -rf "$HOME/Arduino/libraries/$base"
-            cp -a "$d" "$HOME/Arduino/libraries/$base"
+          
+          for lib_name in "${!libs[@]}"; do
+            IFS=',' read -r repo ref <<< "${libs[$lib_name]}"
+            echo "Installing $lib_name from $repo ($ref)"
+            
+            # Pobierz bibliotekę
+            git clone --depth 1 --branch "$ref" "https://github.com/$repo.git" "temp_$lib_name"
+            
+            # Skopiuj do katalogu bibliotek
+            cp -r "temp_$lib_name" "$HOME/Arduino/libraries/$lib_name"
+            rm -rf "temp_$lib_name"
           done
-          echo "==== libraries staged ===="
-          find "$HOME/Arduino/libraries" -maxdepth 1 -mindepth 1 -type d -printf "%f\n" | sort
-          echo "==== arduino-cli lib list ===="
-          arduino-cli lib list || true
+          
+          # Lista zainstalowanych bibliotek
+          echo "=== Zainstalowane biblioteki ==="
+          ls -la "$HOME/Arduino/libraries/"
 
-      - name: Show Libraries (debug)
-        run: |
-          find /home/runner/ -name "Custom*"
-          ls -la $HOME/Arduino/libraries
-
+      # Krok 6: Konfiguracja TFT_eSPI
       - name: Configure TFT_eSPI
         run: |
-          rm -f CustomTFT_eSPI/User_Setup_Select.h
-          cp User*.h CustomTFT_eSPI/
-          pwd
-          ls -la
-          ls -la CustomTFT_eSPI
+          if [ -f "User_Setup_Select.h" ]; then
+            cp User_Setup_Select.h "$HOME/Arduino/libraries/TFT_eSPI/"
+            echo "Skopiowano User_Setup_Select.h"
+          else
+            echo "UWAGA: Brak User_Setup_Select.h - używana domyślna konfiguracja TFT"
+          fi
 
+      # Krok 7: Instalacja esptool
       - name: Install Esptool
         run: pip install esptool
 
-      - name: Modify platform.txt
+      # Krok 8: Modyfikacja platform.txt (fix dla linkowania)
+      - name: Fix Platform.txt for ESP32-S3
         run: |
-          if [[ ${{ matrix.board.idf_ver }} == "2.0.10" ]]; then
-            for i in $(find /home/runner/.arduino15/packages/esp32/hardware/esp32/ -name "platform.txt"); do
-              sed -i 's/compiler.c.elf.libs.esp32c3=/compiler.c.elf.libs.esp32c3=-zmuldefs /' "$i"
-              sed -i 's/compiler.c.elf.libs.esp32s3=/compiler.c.elf.libs.esp32s3=-zmuldefs /' "$i"
-              sed -i 's/compiler.c.elf.libs.esp32s2=/compiler.c.elf.libs.esp32s2=-zmuldefs /' "$i"
-              sed -i 's/compiler.c.elf.libs.esp32=/compiler.c.elf.libs.esp32=-zmuldefs /' "$i"
-              cat "$i" | grep compiler.c.elf.libs.esp32c3
-              cat "$i" | grep compiler.c.elf.libs.esp32s3
-              cat "$i" | grep compiler.c.elf.libs.esp32s2
-              cat "$i" | grep compiler.c.elf.libs.esp32
-            done
-          fi
-
-      - name: Configure TFT_eSPI (if needed)
-        run: |
-          pwd
-          if [[ ${{ matrix.board.tft }} == true ]]; then
-            find /home/runner/ -name "*TFT_eSPI*"
-            sed -i 's/^\/\/#include <${{ matrix.board.tft_file }}>/#include <${{ matrix.board.tft_file }}>/' /home/runner/work/ESP32Marauder/ESP32Marauder/CustomTFT_eSPI/User_Setup_Select.h
-          fi
-
-      - name: Force XIAO target in configs.h (headless + Flipper)
-        run: |
-          set -eux
-          CFG=./esp32_marauder/configs.h
-          sed -i 's/^[[:space:]]*#define[[:space:]]\+MARAUDER_MULTIBOARD_S3/\/\/&/' "$CFG" || true
-          sed -i 's/^[[:space:]]*#define[[:space:]]\+MARAUDER_CARDPUTER/\/\/&/' "$CFG" || true
-          if ! grep -q '^[[:space:]]*#define[[:space:]]\+XIAO_ESP32_S3' "$CFG"; then
-            sed -i '1i#define XIAO_ESP32_S3' "$CFG"
-          fi
-          echo "Board lines in configs.h:"
-          grep -nE '^#define (XIAO_ESP32_S3|MARAUDER_)' "$CFG" || true
-
-      - name: Build Marauder for ${{ matrix.board.name }}
-        uses: ArminJo/arduino-test-compile@v3.3.0
-        with:
-          sketch-names: esp32_marauder.ino
-          arduino-board-fqbn: ${{ matrix.board.fbqn }}
-          extra-arduino-cli-args: "--warnings none --build-property \"compiler.cpp.extra_flags=-D${{ matrix.board.flag }} -DHEADLESS -DENABLE_FLIPPER_COMPANION -DFLIPPER_SD -DHAS_PSRAM\" --build-property \"compiler.c.extra_flags=-D${{ matrix.board.flag }} -DHEADLESS -DENABLE_FLIPPER_COMPANION -DFLIPPER_SD -DHAS_PSRAM\""
-          arduino-platform: esp32:esp32@${{ matrix.board.idf_ver }}
-          platform-url: https://github.com/espressif/arduino-esp32/releases/download/${{ matrix.board.idf_ver }}/package_esp32_dev_index.json
-
-      - name: Rename and Upload ${{ matrix.board.name }} Artifact
-        run: |
-          set -eux
-          VERSION=$(grep '#define MARAUDER_VERSION' ./esp32_marauder/configs.h | sed -E 's/.*"v([^"]+)"/v\1/' | tr '.' '_')
-          DATE=$(date +%Y%m%d)
-          BUILD_DIR=./esp32_marauder/build/esp32.esp32.${{ matrix.board.build_dir }}
-          INPUT_BIN="$BUILD_DIR/esp32_marauder.ino.bin"
-          OUTPUT_BIN="esp32_marauder_${VERSION}_${DATE}_${{ matrix.board.file_name }}.bin"
-          if [ -f "$INPUT_BIN" ]; then
-            mv "$INPUT_BIN" "$BUILD_DIR/$OUTPUT_BIN"
-            echo "artifact_name=$OUTPUT_BIN" >> $GITHUB_ENV
-            echo "artifact_path=$BUILD_DIR/$OUTPUT_BIN" >> $GITHUB_ENV
+          PLATFORM_FILE=$(find "$HOME/.arduino15/packages/esp32/hardware/esp32/${{ matrix.board.idf_ver }}" -name "platform.txt" | head -1)
+          if [ -f "$PLATFORM_FILE" ]; then
+            echo "Modyfikuję: $PLATFORM_FILE"
+            sed -i 's/compiler.c.elf.libs.esp32s3=/compiler.c.elf.libs.esp32s3=-zmuldefs /' "$PLATFORM_FILE"
+            echo "Sprawdzam modyfikację:"
+            grep "compiler.c.elf.libs.esp32s3" "$PLATFORM_FILE"
           else
-            echo "ERROR: expected build output $INPUT_BIN not found"
-            ls -la "$BUILD_DIR" || true
+            echo "UWAGA: Nie znaleziono platform.txt"
+          fi
+
+      # Krok 9: Konfiguracja XIAO w configs.h
+      - name: Configure XIAO Board in configs.h
+        run: |
+          CONFIG_FILE="./esp32_marauder/configs.h"
+          if [ -f "$CONFIG_FILE" ]; then
+            # Wyłącz inne definicje boardów
+            sed -i 's/^[[:space:]]*#define[[:space:]]\+MARAUDER_MULTIBOARD_S3/\/\/&/' "$CONFIG_FILE"
+            sed -i 's/^[[:space:]]*#define[[:space:]]\+MARAUDER_CARDPUTER/\/\/&/' "$CONFIG_FILE"
+            
+            # Włącz XIAO_ESP32_S3
+            if ! grep -q '^[[:space:]]*#define[[:space:]]\+XIAO_ESP32_S3' "$CONFIG_FILE"; then
+              echo "#define XIAO_ESP32_S3" >> "$CONFIG_FILE"
+            fi
+            
+            echo "=== Konfiguracja boardów w configs.h ==="
+            grep -E '^#define (XIAO_ESP32_S3|MARAUDER_)' "$CONFIG_FILE" || true
+          else
+            echo "ERROR: Brak pliku configs.h!"
             exit 1
           fi
 
-      - name: Upload ${{ matrix.board.name }} Artifact
+      # Krok 10: Kompilacja projektu
+      - name: Compile Marauder for ${{ matrix.board.name }}
+        run: |
+          export PATH=$PATH:$GITHUB_WORKSPACE/bin
+          
+          echo "=== Rozpoczynam kompilację ==="
+          arduino-cli compile \
+            --fqbn ${{ matrix.board.fbqn }} \
+            --build-property "compiler.cpp.extra_flags=-D${{ matrix.board.flag }} -DHEADLESS -DENABLE_FLIPPER_COMPANION -DFLIPPER_SD -DHAS_PSRAM" \
+            --build-property "compiler.c.extra_flags=-D${{ matrix.board.flag }} -DHEADLESS -DENABLE_FLIPPER_COMPANION -DFLIPPER_SD -DHAS_PSRAM" \
+            --warnings none \
+            --verbose \
+            ./esp32_marauder
+            
+          echo "=== Kompilacja zakończona ==="
+
+      # Krok 11: Przygotowanie artefaktu
+      - name: Prepare Artifact
+        id: prepare_artifact
+        run: |
+          VERSION=$(grep '#define MARAUDER_VERSION' ./esp32_marauder/configs.h | sed -E 's/.*"v([^"]+)"/v\1/' | tr '.' '_' || echo "unknown")
+          DATE=$(date +%Y%m%d)
+          BUILD_DIR="./esp32_marauder/build/esp32.esp32.${{ matrix.board.build_dir }}"
+          INPUT_BIN="$BUILD_DIR/esp32_marauder.ino.bin"
+          OUTPUT_BIN="esp32_marauder_${VERSION}_${DATE}_${{ matrix.board.file_name }}.bin"
+          
+          if [ -f "$INPUT_BIN" ]; then
+            cp "$INPUT_BIN" "$OUTPUT_BIN"
+            echo "artifact_name=$OUTPUT_BIN" >> $GITHUB_OUTPUT
+            echo "artifact_path=$OUTPUT_BIN" >> $GITHUB_OUTPUT
+            echo "SUCCESS: Utworzono $OUTPUT_BIN"
+            ls -la "$OUTPUT_BIN"
+          else
+            echo "ERROR: Nie znaleziono pliku binarnego: $INPUT_BIN"
+            echo "Szukam dostępnych plików:"
+            find "./esp32_marauder/build" -name "*.bin" -type f || true
+            exit 1
+          fi
+
+      # Krok 12: Upload artefaktu
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.artifact_name }}
-          path: ${{ env.artifact_path }}
-          retention-days: 5
+          name: ${{ steps.prepare_artifact.outputs.artifact_name }}
+          path: ${{ steps.prepare_artifact.outputs.artifact_path }}
+          retention-days: 7
 
-  post_compile_steps:
+  # Zadanie tworzenia release
+  create_release:
     name: Create Release
     runs-on: ubuntu-latest
     needs: [compile_sketch]
     if: ${{ github.event_name == 'workflow_dispatch' }}
+    
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - name: Download All Artifacts
+        uses: actions/download-artifact@v4
         with:
-          merge-multiple: true
+          path: ./artifacts
+          
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
@@ -270,28 +216,22 @@ jobs:
           generate_release_notes: true
           draft: true
           files: |
-            esp32_marauder_v*.bin
+            artifacts/**/*.bin
           body: |
-            [justcallmekokollc.com](https://justcallmekokollc.com)
-
-            ### Please see [GPS Modification](https://github.com/justcallmekoko/ESP32Marauder/wiki/gps-modification) to find out how to add GPS capabilities to your Marauder.
-            **Flipper Zero Marauder Companion App:**
-            **Be sure to install the latest version of the [Marauder Companion](https://github.com/0xchocolate/flipperzero-wifi-marauder/releases/latest) to use these new features on your Flipper Zero**
-
-            **Additional Resources**
-            **[Project Issues](https://github.com/justcallmekoko/ESP32Marauder/issues)**
-            **[Install/Update Instructions](https://github.com/justcallmekoko/ESP32Marauder/wiki/update-firmware)**
-            **[ESP32 Marauder companion app](https://github.com/0xchocolate/flipperzero-firmware-with-wifi-marauder-companion/releases/latest)**
-            **[My Discord](https://discord.com/servers/willstunforfood-776211399918878760)**
-
-            **Flipper Zero Dev Board is NOT the same thing as Dev Board Pro. Don't get them confused.**
-
-            ### MARAUDER V6/V6.X WARNING
-            **Please check which Marauder you are using by looking at the front face of the PCB (side with the screen). If it says v6.1 (or .2), use the v6.1 bin. If it says v6, use the v6 bin.**
-
-            ## ESP32-C5 (5GHz support)
-            Please see our [installation guide](https://github.com/justcallmekoko/ESP32Marauder/wiki/ESP32%E2%80%90C5%E2%80%90DevKitC%E2%80%901) for installing the Marauder firmware on your ESP32-C5-DevKitC-1
-
-            | Hardware | Binary Version |
-            | -------- | -------------- |
-            | XIAO_ESP32S3 Plus | `xiaos3plus.bin` |
+            ## ESP32 Marauder - XIAO ESP32S3 Plus
+            
+            **Hardware:** XIAO ESP32S3 Plus
+            **Plik:** `xiaos3plus.bin`
+            
+            ### Ważne informacje:
+            - Partition Scheme: min_spiffs
+            - Flash Size: 8MB
+            - PSRAM: Enabled (OPI)
+            - Konfiguracja: HEADLESS + Flipper Companion
+            
+            ### Instalacja:
+            Użyj ESPtool lub Arduino IDE do wgrania firmware.
+            
+            ```bash
+            esptool.py write_flash 0x0 esp32_marauder_*_xiaos3plus.bin
+            ```
