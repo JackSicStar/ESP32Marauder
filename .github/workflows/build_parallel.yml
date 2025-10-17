@@ -17,7 +17,7 @@ jobs:
         board:
           - name: "xiaos3"
             flag: "XIAO_ESP32_S3"
-            fbqn: "esp32:esp32:XIAO_ESP32S3:PartitionScheme=min_spiffs,FlashSize=16M,PSRAM=opi"
+            fbqn: "esp32:esp32:XIAO_ESP32S3:PartitionScheme=min_spiffs,FlashSize=8M,PSRAM=opi"
             file_name: "xiaos3"
             tft: false
             tft_file: ""
