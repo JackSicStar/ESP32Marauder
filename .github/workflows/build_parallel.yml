@@ -1,12 +1,10 @@
 name: Build and Push Parallel
-
 on:
   workflow_dispatch:
   push:
     branches: [ master ]
     tags: [ "*" ]
   pull_request:
-
 jobs:
   compile_sketch:
     name: build ${{ matrix.board.name }}
@@ -26,11 +24,9 @@ jobs:
             esp_async: "ESP32Async/ESPAsyncWebServer"
             esp_async_ver: "master"
             asynctcp_ver: "v3.4.9"
-
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
-
       - name: Install Arduino CLI (pinned)
         run: |
           set -eux
@@ -50,7 +46,6 @@ jobs:
           fi
           sudo chmod +x /usr/local/bin/arduino-cli
           arduino-cli version
-
       - name: Init arduino-cli config and paths
         run: |
           set -eux
@@ -59,7 +54,6 @@ jobs:
           arduino-cli config set directories.downloads "$HOME/.arduino15/staging"
           arduino-cli config set directories.user "$HOME/Arduino"
           arduino-cli config dump
-
       - name: Install ESP32 Core ${{ matrix.board.idf_ver }}
         run: |
           set -eux
@@ -67,7 +61,6 @@ jobs:
           arduino-cli core update-index --additional-urls "$URL"
           arduino-cli core install esp32:esp32@${{ matrix.board.idf_ver }} --additional-urls "$URL"
           arduino-cli core list
-
       # ==== Biblioteki wymagane przez Maraudera (headless – bez TFT) ====
       - name: Install ESP32Ping
         uses: actions/checkout@v2
@@ -75,77 +68,66 @@ jobs:
           repository: marian-craciunescu/ESP32Ping
           ref: 1.6
           path: CustomESP32Ping
-
       - name: Install AsyncTCP (fixed version)
         uses: actions/checkout@v2
         with:
           repository: ESP32Async/AsyncTCP
           ref: ${{ matrix.board.asynctcp_ver }}
           path: CustomAsyncTCP
-
       - name: Install MicroNMEA
         uses: actions/checkout@v2
         with:
           repository: stevemarple/MicroNMEA
           ref: v2.0.6
           path: CustomMicroNMEA
-
       - name: Install ESPAsyncWebServer (fixed branch)
         uses: actions/checkout@v2
         with:
           repository: ESP32Async/ESPAsyncWebServer
           ref: ${{ matrix.board.esp_async_ver }}
           path: CustomESPAsyncWebServer
-
       - name: Install NimBLE-Arduino
         uses: actions/checkout@v2
         with:
           repository: h2zero/NimBLE-Arduino
           ref: ${{ matrix.board.nimble_ver }}
           path: CustomNimBLE-Arduino
-
       - name: Install Adafruit_NeoPixel
         uses: actions/checkout@v2
         with:
           repository: adafruit/Adafruit_NeoPixel
           ref: 1.12.0
           path: CustomAdafruit_NeoPixel
-
       - name: Install ArduinoJson
         uses: actions/checkout@v2
         with:
           repository: bblanchon/ArduinoJson
           ref: v6.18.2
           path: CustomArduinoJson
-
       - name: Install LinkedList
         uses: actions/checkout@v2
         with:
           repository: ivanseidel/LinkedList
           ref: v1.3.3
           path: CustomLinkedList
-
       - name: Install EspSoftwareSerial
         uses: actions/checkout@v2
         with:
           repository: plerup/espsoftwareserial
           ref: 8.1.0
           path: CustomEspSoftwareSerial
-
       - name: Install Adafruit_BusIO
         uses: actions/checkout@v2
         with:
           repository: adafruit/Adafruit_BusIO
           ref: 1.15.0
           path: CustomAdafruit_BusIO
-
       - name: Install Adafruit_MAX1704X
         uses: actions/checkout@v2
         with:
           repository: adafruit/Adafruit_MAX1704X
           ref: 1.0.2
           path: CustomAdafruit_MAX1704X
-
       - name: Stage Arduino libraries (strip Custom* -> official names)
         run: |
           set -eux
@@ -163,7 +145,6 @@ jobs:
           find "$HOME/Arduino/libraries" -maxdepth 1 -mindepth 1 -type d -printf "%f\n" | sort
           echo "==== arduino-cli lib list ===="
           arduino-cli lib list || true
-
       - name: Force XIAO target in configs.h (headless + Flipper)
         run: |
           set -eux
@@ -175,25 +156,20 @@ jobs:
           fi
           echo "Board lines in configs.h:"
           grep -nE '^#define (XIAO_ESP32_S3|MARAUDER_)' "$CFG" || true
-
       - name: Install Esptool
         run: pip install esptool
-
       - name: Show allowed board options (debug)
         run: |
           set -eux
           PKG_URL="https://github.com/espressif/arduino-esp32/releases/download/${{ matrix.board.idf_ver }}/package_esp32_dev_index.json"
           arduino-cli board details --fqbn "${{ matrix.board.fbqn }}" --additional-urls "$PKG_URL" | sed -n '/Options:/,$p' || true
-
       - name: Compile (manual arduino-cli, verbose — show detailed errors)
         run: |
           set -euxo pipefail
           PKG_URL="https://github.com/espressif/arduino-esp32/releases/download/${{ matrix.board.idf_ver }}/package_esp32_dev_index.json"
-
           echo "== arduino-cli version ==" && arduino-cli version
           echo "== staged libs ==" && arduino-cli lib list || true
           echo "== compile =="
-
           LOG=/tmp/build_full.log
           set +e
           arduino-cli compile \
@@ -211,7 +187,6 @@ jobs:
             tail -n 300 "$LOG" || true
             exit $RC
           fi
-
       - name: Rename and Upload ${{ matrix.board.name }} Artifact
         run: |
           set -eux
@@ -229,14 +204,12 @@ jobs:
             ls -la "$BUILD_DIR" || true
             exit 1
           fi
-
       - name: Upload ${{ matrix.board.name }} Artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.artifact_name }}
           path: ${{ env.artifact_path }}
           retention-days: 5
-
   post_compile_steps:
     name: Create Release
     runs-on: ubuntu-latest
@@ -258,6 +231,6 @@ jobs:
             esp32_marauder_v*.bin
           body: |
             **Flipper Zero Marauder Companion App:** zainstaluj najnowszą wersję, aby korzystać z trybu headless (pliki/HTML z karty Flippera).
-            | Hardware              | Binary Version   |
+            | Hardware | Binary Version |
             | --------------------- | ---------------- |
             | XIAO_ESP32S3 **Plus** | `xiaos3plus.bin` |
