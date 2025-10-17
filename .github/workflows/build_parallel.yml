@@ -17,14 +17,14 @@ jobs:
         board:
           - name: "xiaos3plus"
             flag: "XIAO_ESP32_S3"
-            # FQBN bez opcji; opcje podamy przez --board-options (FlashSize=16M dla PLUS)
+            # FQBN bez opcji; opcje podamy przez --board-options
             fbqn: "esp32:esp32:XIAO_ESP32S3"
             file_name: "xiaos3plus"
             tft: false
             tft_file: ""
             build_dir: "esp32s3"
             addr: "0x1000"
-            # <<< KLUCZOWA ZMIANA: nowszy core z obsługą 16M dla XIAO S3 Plus
+            # KLUCZ: nowszy core z obsługą 16M dla XIAO S3 Plus
             idf_ver: "3.3.2"
             nimble_ver: "1.3.8"
             esp_async: "bigbrodude6119/ESPAsyncWebServer"
@@ -200,10 +200,10 @@ jobs:
           echo "== libs ==" && arduino-cli lib list || true
           echo "== compile =="
 
-          # DLA XIAO ESP32S3 PLUS: 16M flash + PSRAM OPI + min_spiffs
+          # XIAO ESP32S3 PLUS: 16M flash + PSRAM OPI; partycje = default (bez zgadywania nazw)
           arduino-cli compile \
             --fqbn "${{ matrix.board.fbqn }}" \
-            --board-options "FlashSize=16M,PSRAM=opi,PartitionScheme=min_spiffs" \
+            --board-options "FlashSize=16M,PSRAM=opi" \
             --additional-urls "$PKG_URL" \
             --warnings none \
             --build-property "compiler.cpp.extra_flags=-D${{ matrix.board.flag }} -DHEADLESS -DENABLE_FLIPPER_COMPANION -DFLIPPER_SD -DHAS_PSRAM" \
@@ -257,6 +257,6 @@ jobs:
             esp32_marauder_v*.bin
           body: |
             **Flipper Zero Marauder Companion App:** zainstaluj najnowszą wersję, aby korzystać z trybu headless (pliki/HTML z karty Flippera).
-            | Hardware              | Binary Version |
-            | --------------------- | -------------- |
+            | Hardware              | Binary Version   |
+            | --------------------- | ---------------- |
             | XIAO_ESP32S3 **Plus** | `xiaos3plus.bin` |
