@@ -216,17 +216,26 @@ jobs:
       - name: Install Esptool
         run: pip install esptool
 
-      # Build przez akcję (ładny interfejs) + właściwe quoting
-      - name: Build Marauder for ${{ matrix.board.name }}
-        uses: ArminJo/arduino-test-compile@v3.3.0
-        with:
-          sketch-names: esp32_marauder.ino
-          arduino-board-fqbn: ${{ matrix.board.fbqn }}
-          arduino-platform: esp32:esp32@${{ matrix.board.idf_ver }}
-          platform-url: https://github.com/espressif/arduino-esp32/releases/download/${{ matrix.board.idf_ver }}/package_esp32_dev_index.json
-          extra-arduino-cli-args: |
-            --warnings none
-            --build-property "compiler.cpp.extra_flags=-D${{ matrix.board.flag }} -DHEADLESS -DENABLE_FLIPPER_COMPANION -DFLIPPER_SD -DHAS_PSRAM"
+      - name: Build Marauder (manual arduino-cli)
+        run: |
+          set -euxo pipefail
+          # Jawnie ustaw dodatkowy index (jak wyżej przy install core)
+          PKG_URL="https://github.com/espressif/arduino-esp32/releases/download/${{ matrix.board.idf_ver }}/package_esp32_dev_index.json"
+
+          # Pokaż wersję i biblioteki (debug)
+          arduino-cli version
+          arduino-cli lib list || true
+
+          # KLUCZ: całe value po '=' jest w JEDNYCH cudzysłowach,
+          # brak łamań linii między argumentami, brak zbędnych '--warnings all'
+          arduino-cli compile \
+            --fqbn "${{ matrix.board.fbqn }}" \
+            --warnings none \
+            --additional-urls "$PKG_URL" \
+            --build-property "compiler.cpp.extra_flags=-D${{ matrix.board.flag }} -DHEADLESS -DENABLE_FLIPPER_COMPANION -DFLIPPER_SD -DHAS_PSRAM" \
+            --build-property "compiler.c.extra_flags=-D${{ matrix.board.flag }} -DHEADLESS -DENABLE_FLIPPER_COMPANION -DFLIPPER_SD -DHAS_PSRAM" \
+            ./esp32_marauder \
+            -v
 
       # Manualny compile z pełnym logiem - jakby akcja coś zjadła
       - name: Compile (manual arduino-cli with full logs)
