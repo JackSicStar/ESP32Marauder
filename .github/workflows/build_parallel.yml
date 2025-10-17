@@ -210,7 +210,7 @@ jobs:
           platform-url: https://github.com/espressif/arduino-esp32/releases/download/${{ matrix.board.idf_ver }}/package_esp32_dev_index.json
           extra-arduino-cli-args: |
             --warnings none
-            --build-property "compiler.cpp.extra_flags=-D${{ matrix.board.flag }} -DHEADLESS -DENABLE_FLIPPER_COMPANION -DFLIPPER_SD -DHAS_PSRAM"
+            --build-property "compiler.cpp.extra_flags=-${{ matrix.board.flag }} -HEADLESS -ENABLE_FLIPPER_COMPANION -FLIPPER_SD -HAS_PSRAM"
 
       - name: Rename and Upload ${{ matrix.board.name }} Artifact
         run: |
