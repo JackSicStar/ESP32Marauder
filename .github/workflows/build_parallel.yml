@@ -98,7 +98,7 @@ jobs:
           
           # Próba 1: Z domyślnym PartitionScheme
           arduino-cli compile \
-            --fqbn "esp32:esp32:XIAO_ESP32S3:FlashMode=qio,FlashSize=8M,PartitionScheme=default,PSRAM=opi" \
+            --fqbn "esp32:esp32:XIAO_ESP32S3:FlashMode=qio,FlashSize=8M,PartitionScheme=min_spiffs,PSRAM=opi" \
             --build-property "compiler.cpp.extra_flags=-DXIAO_ESP32_S3 -DHEADLESS -DENABLE_FLIPPER_COMPANION -DFLIPPER_SD -DHAS_PSRAM" \
             --build-property "compiler.c.extra_flags=-DXIAO_ESP32_S3 -DHEADLESS -DENABLE_FLIPPER_COMPANION -DFLIPPER_SD -DHAS_PSRAM" \
             --warnings none \
