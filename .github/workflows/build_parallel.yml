@@ -230,7 +230,6 @@ jobs:
           draft: true
           files: |
             esp32_marauder_v*.bin
-           files: |
-             esp32_marauder_v*.bin
+
              
 
