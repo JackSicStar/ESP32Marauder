@@ -221,13 +221,14 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           merge-multiple: true
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
-        with:
-          name: "Marauder Release ${{ github.ref_name }}"
-          tag_name: ${{ github.ref_name }}
-          generate_release_notes: true
-          draft: true
-          files: |
-            esp32_marauder_v*.bin
+          
+       - name: Create Release
+         uses: softprops/action-gh-release@v1
+         with:
+           name: "Marauder Release ${{ github.ref_name }}"
+           tag_name: ${{ github.ref_name }}
+           generate_release_notes: true
+           draft: true
+           files: |
+             esp32_marauder_v*.bin
 
