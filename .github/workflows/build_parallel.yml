@@ -52,7 +52,7 @@ jobs:
           echo "=== Sprawdzam dostępne opcje dla XIAO ESP32S3 ==="
           arduino-cli board details esp32:esp32:XIAO_ESP32S3 | grep -A 20 "Option: PartitionScheme" || true
           echo "=== Sprawdzam właściwości kompilacji ==="
-          arduino-cli compile --show-properties --fqbn esp32:esp32:XIAO_ESP32S3 ./esp32_marauder 2>/dev/null | grep PartitionScheme || true
+          arduino-cli compile --show-properties --fqbn string esp32:esp32:XIAO_ESP32S3 ./esp32_marauder 2>/dev/null | grep PartitionScheme || true
 
       - name: Install Required Libraries
         run: |
