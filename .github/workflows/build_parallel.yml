@@ -98,7 +98,7 @@ jobs:
           
           # Próba 1: Z domyślnym PartitionScheme
           arduino-cli compile \
-            --fqbn: "esp32:esp32:dfrobot_firebeetle2_esp32e:FlashSize=16M,PartitionScheme=min_spiffs,PSRAM=enabled" \
+            --fqbn string: "esp32:esp32:dfrobot_firebeetle2_esp32e:FlashSize=16M,PartitionScheme=min_spiffs,PSRAM=enabled" \
             --build-property "compiler.cpp.extra_flags=-DXIAO_ESP32_S3 -DHEADLESS -DENABLE_FLIPPER_COMPANION -DFLIPPER_SD -DHAS_PSRAM" \
             --build-property "compiler.c.extra_flags=-DXIAO_ESP32_S3 -DHEADLESS -DENABLE_FLIPPER_COMPANION -DFLIPPER_SD -DHAS_PSRAM" \
             --warnings none \
